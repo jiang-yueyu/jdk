@@ -42,8 +42,8 @@ const char*       ZGlobalPhaseToString();
 extern uint32_t   ZGlobalSeqNum;
 
 // Granule shift/size
-const size_t      ZGranuleSizeShift             = ZPlatformGranuleSizeShift;
-const size_t      ZGranuleSize                  = (size_t)1 << ZGranuleSizeShift;
+constexpr size_t      ZGranuleSizeShift             = 21;
+constexpr size_t      ZGranuleSize                  = (size_t)1 << ZGranuleSizeShift;
 
 // Number of heap views
 const size_t      ZHeapViews                    = ZPlatformHeapViews;
@@ -102,22 +102,22 @@ extern uint32_t*  ZAddressBadMaskHighOrderBitsAddr;
 const int         ZAddressBadMaskHighOrderBitsOffset = LITTLE_ENDIAN_ONLY(4) BIG_ENDIAN_ONLY(0);
 
 // Pointer part of address
-extern size_t     ZAddressOffsetBits;
-const  size_t     ZAddressOffsetShift           = 0;
-extern uintptr_t  ZAddressOffsetMask;
-extern size_t     ZAddressOffsetMax;
+constexpr size_t ZAddressOffsetBits = 42;
+constexpr size_t ZAddressOffsetShift = 0;
+constexpr size_t ZAddressOffsetMask = (((size_t)1 << ZAddressOffsetBits) - 1) << ZAddressOffsetShift;
+constexpr size_t ZAddressOffsetMax = (size_t)1 << ZAddressOffsetBits;
 
 // Metadata part of address
-const size_t      ZAddressMetadataBits          = 4;
-extern size_t     ZAddressMetadataShift;
-extern uintptr_t  ZAddressMetadataMask;
+constexpr size_t ZAddressMetadataBits = 4;
+constexpr size_t ZAddressMetadataShift = 42;
+constexpr size_t ZAddressMetadataMask = (((size_t)1 << ZAddressMetadataBits) - 1) << ZAddressMetadataShift;
 
 // Metadata types
-extern uintptr_t  ZAddressMetadataMarked;
-extern uintptr_t  ZAddressMetadataMarked0;
-extern uintptr_t  ZAddressMetadataMarked1;
-extern uintptr_t  ZAddressMetadataRemapped;
-extern uintptr_t  ZAddressMetadataFinalizable;
+extern uintptr_t ZAddressMetadataMarked;
+constexpr size_t ZAddressMetadataMarked0 = (size_t)1 << (ZAddressMetadataShift + 0);
+constexpr size_t ZAddressMetadataMarked1 = (size_t)1 << (ZAddressMetadataShift + 1);
+constexpr size_t ZAddressMetadataRemapped = (size_t)1 << (ZAddressMetadataShift + 2);
+constexpr size_t ZAddressMetadataFinalizable = (size_t)1 << (ZAddressMetadataShift + 3);
 
 // Cache line size
 const size_t      ZCacheLineSize                = ZPlatformCacheLineSize;

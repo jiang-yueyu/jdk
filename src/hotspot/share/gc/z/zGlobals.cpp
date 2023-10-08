@@ -38,9 +38,9 @@ int        ZObjectAlignmentMediumShift;
 const int& ZObjectAlignmentSmall       = MinObjAlignmentInBytes;
 int        ZObjectAlignmentMedium;
 
-uintptr_t  ZAddressGoodMask;
-uintptr_t  ZAddressBadMask;
-uintptr_t  ZAddressWeakBadMask;
+size_t  ZAddressGoodMask;
+size_t  ZAddressBadMask;
+size_t  ZAddressWeakBadMask;
 
 static uint32_t* ZAddressCalculateBadMaskHighOrderBitsAddr() {
   const uintptr_t addr = reinterpret_cast<uintptr_t>(&ZAddressBadMask);

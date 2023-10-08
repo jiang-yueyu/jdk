@@ -279,6 +279,13 @@ void ZMark::follow_object(oop obj, bool finalizable) {
   }
 }
 
+/*
+ * Reader Note
+ * 实际执行到此处时, 可以认为follow总是true.
+ * 如果由gcThread触发进栈, mark为false
+ * relocate_or_mark keep_alive_barrier_on_oop_slow_path触发的进栈, mark为true
+ * mark_barrier_on_oop_slow_path 触发的进栈, mark为false
+ */
 void ZMark::mark_and_follow(ZMarkCache* cache, ZMarkStackEntry entry) {
   // Decode flags
   const bool finalizable = entry.finalizable();

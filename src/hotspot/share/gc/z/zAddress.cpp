@@ -32,18 +32,6 @@ void ZAddress::set_good_mask(uintptr_t mask) {
 }
 
 void ZAddress::initialize() {
-  ZAddressOffsetBits = ZPlatformAddressOffsetBits();
-  ZAddressOffsetMask = (((uintptr_t)1 << ZAddressOffsetBits) - 1) << ZAddressOffsetShift;
-  ZAddressOffsetMax = (uintptr_t)1 << ZAddressOffsetBits;
-
-  ZAddressMetadataShift = ZPlatformAddressMetadataShift();
-  ZAddressMetadataMask = (((uintptr_t)1 << ZAddressMetadataBits) - 1) << ZAddressMetadataShift;
-
-  ZAddressMetadataMarked0 = (uintptr_t)1 << (ZAddressMetadataShift + 0);
-  ZAddressMetadataMarked1 = (uintptr_t)1 << (ZAddressMetadataShift + 1);
-  ZAddressMetadataRemapped = (uintptr_t)1 << (ZAddressMetadataShift + 2);
-  ZAddressMetadataFinalizable = (uintptr_t)1 << (ZAddressMetadataShift + 3);
-
   ZAddressMetadataMarked = ZAddressMetadataMarked0;
   set_good_mask(ZAddressMetadataRemapped);
 }
