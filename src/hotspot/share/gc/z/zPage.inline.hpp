@@ -196,6 +196,10 @@ inline bool ZPage::is_object_strongly_live(uintptr_t addr) const {
   return is_allocating() || is_object_strongly_marked(addr);
 }
 
+/*
+ * Reader Note
+ * 此处并不是标记对象本身, 而是在活跃对象表里设置一个标记
+ */
 inline bool ZPage::mark_object(uintptr_t addr, bool finalizable, bool& inc_live) {
   assert(ZAddress::is_marked(addr), "Invalid address");
   assert(is_relocatable(), "Invalid page state");

@@ -100,6 +100,10 @@ public:
 
   bool is_initialized() const;
 
+  /*
+   * Reader Note
+   * 在活跃对象表里设置标记位, 并把该对象加入到标记对象栈里
+   */
   template <bool gc_thread, bool follow, bool finalizable, bool publish> void mark_object(uintptr_t addr);
 
   void start();

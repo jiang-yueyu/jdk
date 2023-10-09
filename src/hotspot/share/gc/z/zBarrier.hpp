@@ -47,6 +47,10 @@ private:
 
   template <ZBarrierFastPath fast_path> static void self_heal(volatile oop* p, uintptr_t addr, uintptr_t heal_addr);
 
+  /**
+   * Reader Note
+   * 简单理解为, p == &o, 如果o对应的地址是good_address, 直接返回, 否则做一次指针自愈后再标记
+   */ 
   template <ZBarrierFastPath fast_path, ZBarrierSlowPath slow_path> static oop barrier(volatile oop* p, oop o);
   template <ZBarrierFastPath fast_path, ZBarrierSlowPath slow_path> static oop weak_barrier(volatile oop* p, oop o);
   template <ZBarrierFastPath fast_path, ZBarrierSlowPath slow_path> static void root_barrier(oop* p, oop o);
@@ -58,6 +62,12 @@ private:
   static bool during_mark();
   static bool during_relocate();
   template <bool finalizable> static bool should_mark_through(uintptr_t addr);
+
+  /*
+   * Reader Note
+   * 如果地址已经被标记过, 转换为本轮gc的目标地址, 否则做一次转移
+   * 如果当前处于标记阶段, 需要标记指向的对象
+   */
   template <bool gc_thread, bool follow, bool finalizable, bool publish> static uintptr_t mark(uintptr_t addr);
   static uintptr_t remap(uintptr_t addr);
   static uintptr_t relocate(uintptr_t addr);

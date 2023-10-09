@@ -37,6 +37,10 @@ private:
 public:
   ZForwardingTable();
 
+  /**
+   * Reader Note
+   * 地址到转发表只是一个简单的线性映射
+   */ 
   ZForwarding* get(uintptr_t addr) const;
 
   void insert(ZForwarding* forwarding);

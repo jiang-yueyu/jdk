@@ -55,14 +55,47 @@ private:
 
   void pause_mark_start();
   void concurrent_mark();
+  /**
+   * Reader Note
+   * 简单理解为, 标记栈和可入栈任务均为空
+   * 如果判断为标记结束, 切换到下一个阶段
+   */
   bool pause_mark_end();
+  /**
+   * Reader Note
+   * 简单理解为, 不扫描根节点, 在现有的标记栈和可入栈任务上继续操作
+   */
   void concurrent_mark_continue();
+  /**
+   * Reader Note
+   * 似乎只是更新标记和统计值的操作
+   */
   void concurrent_mark_free();
   void concurrent_process_non_strong_references();
+  /**
+   * Reader Note
+   * 清空转发表
+   */
   void concurrent_reset_relocation_set();
+  /**
+   * Reader Note
+   * 似乎只是校验动作, 校验失败直接抛异常
+   */
   void pause_verify();
+  /*
+   * Reader Note
+   * 维护转发表
+   */
   void concurrent_select_relocation_set();
+  /**
+   * Reader Note
+   * 似乎就是切换状态
+   */
   void pause_relocate_start();
+  /**
+   * Reader Note
+   * 似乎是移动对象和更新转发表的操作
+   */
   void concurrent_relocate();
 
   void check_out_of_memory();

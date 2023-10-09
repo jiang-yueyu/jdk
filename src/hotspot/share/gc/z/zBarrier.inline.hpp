@@ -369,9 +369,11 @@ inline void ZBarrier::keep_alive_barrier_on_oop(oop o) {
   }
 }
 
-//
-// Mark barrier
-//
+/**
+ * Reader Note
+ * 针对对象中每个对象字段的回调函数
+ * Mark barrier
+ */
 inline void ZBarrier::mark_barrier_on_oop_field(volatile oop* p, bool finalizable) {
   const oop o = Atomic::load(p);
 
