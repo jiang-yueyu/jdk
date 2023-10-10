@@ -86,6 +86,10 @@ private:
   static uintptr_t keep_alive_barrier_on_weak_oop_slow_path(uintptr_t addr);
   static uintptr_t keep_alive_barrier_on_phantom_oop_slow_path(uintptr_t addr);
 
+/**
+ * Reader Note
+ * 触发一次标记地址的动作
+ */
   static uintptr_t mark_barrier_on_oop_slow_path(uintptr_t addr);
   static uintptr_t mark_barrier_on_finalizable_oop_slow_path(uintptr_t addr);
 
