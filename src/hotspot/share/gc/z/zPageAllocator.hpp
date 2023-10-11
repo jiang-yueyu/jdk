@@ -123,6 +123,10 @@ public:
   void free_pages(const ZArray<ZPage*>* pages, bool reclaimed);
 
   void enable_deferred_delete() const;
+  /**
+   * Reader Note
+   * delete相关的动作在这里发生, 以页表为单位释放内存
+   */
   void disable_deferred_delete() const;
 
   void debug_map_page(const ZPage* page) const;

@@ -84,7 +84,7 @@ private:
   void pause_verify();
   /*
    * Reader Note
-   * 维护转发表
+   * 维护转发表. 这一步比较重要, 会决定转发的目标页表
    */
   void concurrent_select_relocation_set();
   /**
