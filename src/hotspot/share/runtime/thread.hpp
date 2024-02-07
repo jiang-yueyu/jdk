@@ -412,6 +412,10 @@ class Thread: public ThreadShadow {
   void set_skip_gcalot(bool v) { _skip_gcalot = v;    }
 #endif
 
+  /*
+  * Reader Note
+  * 每个线程创建时都会预先分配固定大小的1KB内存, 用于执行快速资源分配
+  */
   // Resource area
   ResourceArea* resource_area() const            { return _resource_area; }
   void set_resource_area(ResourceArea* area)     { _resource_area = area; }
