@@ -198,7 +198,8 @@ inline bool ZPage::is_object_strongly_live(uintptr_t addr) const {
 
 /*
  * Reader Note
- * 此处并不是标记对象本身, 而是在活跃对象表里设置一个标记
+ * 此处并不是标记对象本身, 而是在活跃地址表里设置一个标记
+ * 入参是指针, 实际标记的是原始地址
  */
 inline bool ZPage::mark_object(uintptr_t addr, bool finalizable, bool& inc_live) {
   assert(ZAddress::is_marked(addr), "Invalid address");

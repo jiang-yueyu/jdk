@@ -40,6 +40,10 @@ private:
 public:
   ZRelocate(ZWorkers* workers);
 
+  /*
+   * Note
+   * 选中目标位置后, 把对象复制到目标位置上, 然后在转发表里插入记录
+   */
   uintptr_t relocate_object(ZForwarding* forwarding, uintptr_t from_addr) const;
   uintptr_t forward_object(ZForwarding* forwarding, uintptr_t from_addr) const;
 

@@ -278,6 +278,10 @@ private:
   ZForwarding*     _forwarding;
   ZPage*           _target;
 
+  /*
+   * Note
+   * 在转发目标的位置上复制一份当前对象, 然后把地址插入到转发表
+   */
   bool relocate_object(uintptr_t from_addr) const {
     ZForwardingCursor cursor;
 

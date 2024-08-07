@@ -48,6 +48,10 @@ public:
   }
 };
 
+/*
+ * Reader Note
+ * 遍历所有的classloader
+ */
 class ZStrongOopStorageSetIterator {
   OopStorageSetStrongParState<true /* concurrent */, false /* is_const */> _iter;
 

@@ -61,12 +61,19 @@ private:
 
   static bool during_mark();
   static bool during_relocate();
+
+  /**
+   * Reader Note
+   * 可以简化为 return ZGlobalPhase == ZPhaseMark
+   */
   template <bool finalizable> static bool should_mark_through(uintptr_t addr);
 
-  /*
+  /**
    * Reader Note
    * 如果地址已经被标记过, 转换为本轮gc的目标地址, 否则做一次转移
    * 如果当前处于标记阶段, 需要标记指向的对象
+   * @param follow 可以认为都是true
+   * @param publish 决定标记任务被推送到哪个栈: ???
    */
   template <bool gc_thread, bool follow, bool finalizable, bool publish> static uintptr_t mark(uintptr_t addr);
   static uintptr_t remap(uintptr_t addr);

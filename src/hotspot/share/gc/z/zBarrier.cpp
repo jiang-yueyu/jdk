@@ -82,6 +82,8 @@ uintptr_t ZBarrier::mark(uintptr_t addr) {
 
   // Mark
   if (should_mark_through<finalizable>(addr)) {
+    // User Note
+    // 针对未标记的地址, 生成一个标记任务
     ZHeap::heap()->mark_object<gc_thread, follow, finalizable, publish>(good_addr);
   }
 
