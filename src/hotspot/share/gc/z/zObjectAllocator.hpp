@@ -39,6 +39,10 @@ private:
   const bool         _use_per_cpu_shared_small_pages;
   ZPerCPU<size_t>    _used;
   ZPerCPU<size_t>    _undone;
+  /**
+   * Reader Note
+   * 分配中/小对象时优先从共享页表里分配, 容量不足时再分配一个新页表
+   */
   ZContended<ZPage*> _shared_medium_page;
   ZPerCPU<ZPage*>    _shared_small_page;
 
