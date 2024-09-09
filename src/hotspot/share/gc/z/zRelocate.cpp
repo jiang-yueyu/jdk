@@ -841,6 +841,9 @@ private:
     const ZPageAge to_age = _forwarding->to_age();
     const bool promotion = _forwarding->is_promotion();
 
+    /**
+     * TODO ?? 这里为什么不直用from_page而是一定要生成一份拷贝 ??
+     */
     // Promotions happen through a new cloned page
     ZPage* const to_page = promotion ? from_page->clone_limited() : from_page;
     to_page->reset(to_age, ZPageResetType::InPlaceRelocation);
@@ -858,6 +861,9 @@ private:
     return to_page;
   }
 
+  /**
+   * 常规转移失败时, 执行原地转移
+   */
   void relocate_object(oop obj) {
     const zaddress addr = to_zaddress(obj);
     assert(ZHeap::heap()->is_object_live(addr), "Should be live");

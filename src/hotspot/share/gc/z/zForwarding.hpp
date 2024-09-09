@@ -134,6 +134,10 @@ public:
 
   // In-place relocation support
   bool in_place_relocation() const;
+
+  /**
+   * 等待当前线程独占转发表
+   */
   void in_place_relocation_claim_page();
   void in_place_relocation_start(zoffset relocated_watermark);
   void in_place_relocation_finish();

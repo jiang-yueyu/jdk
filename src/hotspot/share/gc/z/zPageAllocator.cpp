@@ -96,6 +96,9 @@ ZPage* ZSafePageRecycle::register_and_clone_if_activated(ZPage* page) {
   return cloned_page;
 }
 
+/**
+ * 页表分配任务
+ */
 class ZPageAllocation : public StackObj {
   friend class ZList<ZPageAllocation>;
 

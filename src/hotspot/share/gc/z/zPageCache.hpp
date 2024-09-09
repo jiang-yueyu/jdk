@@ -31,6 +31,11 @@
 
 class ZPageCacheFlushClosure;
 
+/**
+ * 这里的缓存代表创建出来的页表, 但是这个类不会执行具体的内存分配动作
+ * alloc相关的方法都是从缓存列表里取出以前分配过的页表
+ * flush相关的方法都是将缓存列表里的页表转移到外部
+ */
 class ZPageCache {
 private:
   ZPerNUMA<ZList<ZPage> > _small;
@@ -54,7 +59,15 @@ private:
 public:
   ZPageCache();
 
+  /**
+   * 从缓存列表里取一个页表出来
+   * 优先取出尺寸适配的页, 取不到时可以从大页里拆分出小页
+   */
   ZPage* alloc_page(ZPageType type, size_t size);
+
+  /**
+   * 释放掉页表以后插入回缓存列表
+   */
   void free_page(ZPage* page);
 
   void flush_for_allocation(size_t requested, ZList<ZPage>* to);

@@ -116,12 +116,29 @@ private:
   void increase_used_generation(ZGenerationId id, size_t size);
   void decrease_used_generation(ZGenerationId id, size_t size);
 
+  /**
+   * 提交内存, 简单理解为让物理地址生效
+   */
   bool commit_page(ZPage* page);
+
+  /**
+   * 释放页的物理内存
+   */
   void uncommit_page(ZPage* page);
 
+  /**
+   * 建立内存映射. 页的物理内存可能是多个零散的地址段, 将其映射为一块连续的虚拟内存
+   */
   void map_page(const ZPage* page) const;
+
+  /**
+   * 解除内存映射, 不回收内存
+   */
   void unmap_page(const ZPage* page) const;
 
+  /**
+   * 维护内部的内存地址段freelist, 销毁页对象, 不回收内存
+   */
   void destroy_page(ZPage* page);
 
   /**
@@ -131,7 +148,8 @@ private:
 
   /**
    * 首先检查是否到了堆容量上限
-   * 这个阶段会尝试从页表分配缓存中取出分配好的页表, 放到当前分配器中, 并调整堆容量(_capacity), 但不会发生内存分配
+   * 这个阶段会尝试从页表分配缓存中取出分配好的页表, 放到当前分配器中
+   * 如果缓存中页表不足时发生扩容, 但不会发生内存分配
    */
   bool alloc_page_common_inner(ZPageType type, size_t size, ZList<ZPage>* pages);
 
@@ -205,9 +223,27 @@ public:
   void reset_statistics(ZGenerationId id);
 
   ZPage* alloc_page(ZPageType type, size_t size, ZAllocationFlags flags, ZPageAge age);
+
+  /**
+   * 将页表回收到缓存队列, 不回收内存
+   */
   void recycle_page(ZPage* page);
+
+  /**
+   * 只销毁页表对象, 不回收内存
+   */
   void safe_destroy_page(ZPage* page);
+
+  /**
+   * 修正分配标记, 回收页对象, 不回收内存
+   * 结束后唤醒等待内存的页表分配任务
+   */
   void free_page(ZPage* page);
+
+  /**
+   * 修正分配标记, 回收页对象, 不回收内存
+   * 结束后唤醒等待内存的页表分配任务
+   */
   void free_pages(const ZArray<ZPage*>* pages);
 
   void enable_safe_destroy() const;
