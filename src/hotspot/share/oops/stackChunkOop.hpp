@@ -135,7 +135,10 @@ public:
   inline void set_has_bitmap(bool value);
 
   inline bool has_thaw_slowpath_condition() const;
-
+  
+  /**
+   * 指示chunk能否需要加读屏障, 用于处理协程栈的拷贝
+   */
   inline bool requires_barriers();
 
   template <BarrierType>

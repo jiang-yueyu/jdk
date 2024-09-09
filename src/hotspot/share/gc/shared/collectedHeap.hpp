@@ -362,7 +362,9 @@ protected:
   virtual MetaWord* satisfy_failed_metadata_allocation(ClassLoaderData* loader_data,
                                                        size_t size,
                                                        Metaspace::MetadataType mdtype);
-
+  /**
+   * 指示chunk能否需要加读屏障, 用于处理协程栈的拷贝
+   */
   // Return true, if accesses to the object would require barriers.
   // This is used by continuations to copy chunks of a thread stack into StackChunk object or out of a StackChunk
   // object back into the thread stack. These chunks may contain references to objects. It is crucial that

@@ -72,14 +72,34 @@ private:
   const size_t               _initial_capacity;
   const size_t               _max_capacity;
   volatile size_t            _current_max_capacity;
+
+  /**
+   * @brief 当前的堆容量. ?? 似乎不等于堆数组的总尺寸 ??
+   */
   volatile size_t            _capacity;
+
+  /**
+   * @brief 内存交还期间有效, 代表被交还的字节数
+   */
   volatile size_t            _claimed;
+
+  /**
+   * @brief 已分配的字节数
+   */
   volatile size_t            _used;
+
+  /**
+   * @brief 页表提交/晋升后更新分代的分配字节数
+   */
   size_t                     _used_generations[2];
   struct {
     size_t                   _used_high;
     size_t                   _used_low;
   } _collection_stats[2];
+
+  /**
+   * @brief 暂停的分配任务, 可以理解为正在等待内存, gc结束后被唤醒
+   */
   ZList<ZPageAllocation>     _stalled;
   ZUnmapper*                 _unmapper;
   ZUncommitter*              _uncommitter;
@@ -104,23 +124,59 @@ private:
 
   void destroy_page(ZPage* page);
 
+  /**
+   * @brief 检查当前的最大剩余容量是否充足
+   */
   bool is_alloc_allowed(size_t size) const;
 
+  /**
+   * 首先检查是否到了堆容量上限
+   * 这个阶段会尝试从页表分配缓存中取出分配好的页表, 放到当前分配器中, 并调整堆容量(_capacity), 但不会发生内存分配
+   */
   bool alloc_page_common_inner(ZPageType type, size_t size, ZList<ZPage>* pages);
+
+  /**
+   * 调用alloc_page_common_inner成功后, 修改已分配字节数(_used)
+   */
   bool alloc_page_common(ZPageAllocation* allocation);
+
+  /**
+   * minor-gc的入口点. TODO 看看返回值代表什么
+   */
   bool alloc_page_stall(ZPageAllocation* allocation);
+
+  /**
+   * 这个阶段首先尝试从页表分配缓存中取出分配好的页表
+   * 失败时挂起当前分配任务并启动minor-gc
+   */
   bool alloc_page_or_stall(ZPageAllocation* allocation);
   bool should_defragment(const ZPage* page) const;
   bool is_alloc_satisfied(ZPageAllocation* allocation) const;
   ZPage* alloc_page_create(ZPageAllocation* allocation);
+
+  /**
+   * @brief 这个阶段执行真正的内存分配动作, ?? 将当前分配器中缓存的页表合并为一个真实页表 ??
+   */
   ZPage* alloc_page_finalize(ZPageAllocation* allocation);
   void free_pages_alloc_failed(ZPageAllocation* allocation);
 
   void satisfy_stalled();
 
+  /**
+   * 销毁页表并释放内存
+   * 被使用过的页在延时有效期内不会被回收
+   */
   size_t uncommit(uint64_t* timeout);
 
+  /**
+   * 将失败结果通知到各个等待内存的页表分配任务
+   */
   void notify_out_of_memory();
+
+  /**
+   * minor-gc结束, 但是仍然有等待内存的页表分配任务时调用到该函数
+   * 可能会触发major-gc
+   */
   void restart_gc() const;
 
 public:

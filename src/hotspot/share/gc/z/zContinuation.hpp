@@ -33,10 +33,16 @@ class ZHeap;
 
 class ZContinuation : public AllStatic {
 public:
+  /**
+   * 指示chunk能否需要加读屏障, 用于处理协程栈的拷贝
+   */
   static bool requires_barriers(const ZHeap* heap, stackChunkOop chunk);
 
   static oop load_oop(stackChunkOop chunk, void* addr);
 
+  /**
+   * 将地址转换为指针
+   */
   class ZColorStackOopClosure : public OopClosure {
   private:
     uintptr_t _color;
@@ -47,6 +53,9 @@ public:
     virtual void do_oop(narrowOop* p) override;
   };
 
+  /**
+   * 将指针转换为地址
+   */
   class ZUncolorStackOopClosure : public OopClosure {
   public:
     virtual void do_oop(oop* p) override;
