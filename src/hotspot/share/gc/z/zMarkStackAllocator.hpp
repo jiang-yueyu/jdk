@@ -39,6 +39,9 @@ private:
 
   size_t used() const;
 
+  /**
+   * 最终会走到mmap执行内存分配
+   */
   size_t expand_space();
   size_t shrink_space();
 
