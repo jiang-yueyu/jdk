@@ -149,7 +149,7 @@ private:
   /**
    * 首先检查是否到了堆容量上限
    * 这个阶段会尝试从页表分配缓存中取出分配好的页表, 放到当前分配器中
-   * 如果缓存中页表不足时发生扩容, 但不会发生内存分配
+   * 如果缓存中页表不足时发生虚拟机的逻辑扩容, 但此时不会发生内存分配, 也不会向当前分配任务中插入临时页表
    */
   bool alloc_page_common_inner(ZPageType type, size_t size, ZList<ZPage>* pages);
 
@@ -172,18 +172,31 @@ private:
   bool is_alloc_satisfied(ZPageAllocation* allocation) const;
 
   /**
-   * 首先从freelist中提取一块尺寸合适的虚拟内存(此时只是逻辑占位符)
-   * 然后合并提交到当前分配任务中的页表, 页表尺寸不足时再从逻辑真实内存中提取剩余所需的地址段
+   * 首先从freelist中提取一块尺寸合适的虚拟内存(此时只是逻辑占位符), 失败时返回null
+   * 然后合并转移到当前分配任务中的页表, 页表尺寸不足时再从逻辑真实内存中提取剩余所需的地址段
+   * 最后构造页表对象
+   * 页表内存的映射和提交在后续步骤中完成
    */
   ZPage* alloc_page_create(ZPageAllocation* allocation);
 
   /**
+   * 当转移给分配任务的页表数恰好为1时, 会检查页表的类型和尺寸是否合适, 如果合适之间返回这个页表
+   * 否则:
    * 首先执行alloc_page_create合并创建页表对象, 然后执行内存的提交和映射
+   * 合并当前分配任务的已转移页表, 合并构造页表对象
+   * 这个阶段会执行内存的提交和映射
    * 如果内存提交失败, 则将合并后的页表拆分为已提交和未提交的两部分, 已提交的部分建立内存映射, 并回收到分配任务的页列表中
    */
   ZPage* alloc_page_finalize(ZPageAllocation* allocation);
+
+  /**
+   * alloc_page_finalize失败时触发, 将转移到分配任务中的页表回收到页表缓存队列中
+   */
   void free_pages_alloc_failed(ZPageAllocation* allocation);
 
+  /**
+   * 遍历等待内存(页表)的分配任务, 能够分配页表时将其唤醒
+   */
   void satisfy_stalled();
 
   /**
@@ -228,6 +241,14 @@ public:
 
   void reset_statistics(ZGenerationId id);
 
+  /**
+   * 基本流程为
+   * 检查是否能够扩容
+   * 将页表缓存列表里的页表对象转移给当前分配任务
+   * 合并已转移的页表并提交&映射内存
+   * 内存不足时发起minor-gc
+   * 调整堆状态
+   */
   ZPage* alloc_page(ZPageType type, size_t size, ZAllocationFlags flags, ZPageAge age);
 
   /**
@@ -241,13 +262,13 @@ public:
   void safe_destroy_page(ZPage* page);
 
   /**
-   * 修正分配标记, 回收页对象, 不回收内存
+   * 修正分配标记, 回收页对象到缓存队列, 不回收内存
    * 结束后唤醒等待内存的页表分配任务
    */
   void free_page(ZPage* page);
 
   /**
-   * 修正分配标记, 回收页对象, 不回收内存
+   * 修正分配标记, 回收页对象到缓存队列, 不回收内存
    * 结束后唤醒等待内存的页表分配任务
    */
   void free_pages(const ZArray<ZPage*>* pages);

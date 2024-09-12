@@ -71,7 +71,14 @@ private:
   ZList<ZMemory> _freelist;
   Callbacks      _callbacks;
 
+  /**
+   * 解除分配虚拟地址(但是创建前显然是未分配的状态), 如果这部分地址是相邻的多个段, 会被自动合并
+   */
   ZMemory* create(zoffset start, size_t size);
+
+  /**
+   * 解除分配虚拟地址, 但是这部分虚拟地址会成为占位符, 不会被再次分配出去
+   */
   void destroy(ZMemory* area);
   void shrink_from_front(ZMemory* area, size_t size);
   void shrink_from_back(ZMemory* area, size_t size);
