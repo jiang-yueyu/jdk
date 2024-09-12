@@ -170,10 +170,16 @@ private:
   bool alloc_page_or_stall(ZPageAllocation* allocation);
   bool should_defragment(const ZPage* page) const;
   bool is_alloc_satisfied(ZPageAllocation* allocation) const;
+
+  /**
+   * 首先从freelist中提取一块尺寸合适的虚拟内存(此时只是逻辑占位符)
+   * 然后合并提交到当前分配任务中的页表, 页表尺寸不足时再从逻辑真实内存中提取剩余所需的地址段
+   */
   ZPage* alloc_page_create(ZPageAllocation* allocation);
 
   /**
-   * @brief 这个阶段执行真正的内存分配动作, ?? 将当前分配器中缓存的页表合并为一个真实页表 ??
+   * 首先执行alloc_page_create合并创建页表对象, 然后执行内存的提交和映射
+   * 如果内存提交失败, 则将合并后的页表拆分为已提交和未提交的两部分, 已提交的部分建立内存映射, 并回收到分配任务的页列表中
    */
   ZPage* alloc_page_finalize(ZPageAllocation* allocation);
   void free_pages_alloc_failed(ZPageAllocation* allocation);
