@@ -79,6 +79,12 @@ public:
   ZPhysicalMemory split_committed();
 };
 
+/**
+ * 真实内存
+ * 因为物理内存一般不会直接不会暴露给用户进程, 暂且把此处的内存称为真实内存
+ * 在虚拟机访问堆内存的过程中, 程序直接访问的是虚拟内存, 操作系统根据注册好的内存映射将读写操作转发到真实内存上, 所以真实内存可以是零散的小块地址段, 只要总长度足够即可
+ * 在windows系统上直接将真实内存分配为若干个2M大小的内存块
+ */
 class ZPhysicalMemoryManager {
 private:
   ZPhysicalMemoryBacking _backing;

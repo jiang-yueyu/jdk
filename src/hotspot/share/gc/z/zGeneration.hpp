@@ -75,6 +75,10 @@ protected:
   volatile size_t       _compacted;
 
   Phase                 _phase;
+
+  /**
+   * gc计数, 在mark_start阶段更新
+   */
   uint32_t              _seqnum;
 
   ZStatHeap             _stat_heap;

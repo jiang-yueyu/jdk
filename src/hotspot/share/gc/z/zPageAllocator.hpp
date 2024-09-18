@@ -74,22 +74,22 @@ private:
   volatile size_t            _current_max_capacity;
 
   /**
-   * @brief 当前的堆容量. ?? 似乎不等于堆数组的总尺寸 ??
+   * 当前的堆容量
    */
   volatile size_t            _capacity;
 
   /**
-   * @brief 内存交还期间有效, 代表被交还的字节数
+   * 仅在内存交还期间有效, 代表被交还的字节数
    */
   volatile size_t            _claimed;
 
   /**
-   * @brief 已分配的字节数
+   * 已分配的字节数
    */
   volatile size_t            _used;
 
   /**
-   * @brief 页表提交/晋升后更新分代的分配字节数
+   * 页表提交/晋升后更新分代的分配字节数
    */
   size_t                     _used_generations[2];
   struct {
@@ -98,7 +98,7 @@ private:
   } _collection_stats[2];
 
   /**
-   * @brief 暂停的分配任务, 可以理解为正在等待内存, gc结束后被唤醒
+   * 暂停的分配任务, 可以理解为正在等待内存, gc结束后被唤醒
    */
   ZList<ZPageAllocation>     _stalled;
   ZUnmapper*                 _unmapper;
@@ -117,17 +117,17 @@ private:
   void decrease_used_generation(ZGenerationId id, size_t size);
 
   /**
-   * 提交内存, 简单理解为让物理地址生效
+   * 提交内存, 简单理解为让真实地址生效
    */
   bool commit_page(ZPage* page);
 
   /**
-   * 释放页的物理内存
+   * 释放页的真实内存
    */
   void uncommit_page(ZPage* page);
 
   /**
-   * 建立内存映射. 页的物理内存可能是多个零散的地址段, 将其映射为一块连续的虚拟内存
+   * 建立内存映射. 页的真实内存可能是多个零散的地址段, 将其映射为一块连续的虚拟内存
    */
   void map_page(const ZPage* page) const;
 
@@ -142,7 +142,7 @@ private:
   void destroy_page(ZPage* page);
 
   /**
-   * @brief 检查当前的最大剩余容量是否充足
+   * 检查当前的最大剩余容量是否充足
    */
   bool is_alloc_allowed(size_t size) const;
 
@@ -159,7 +159,8 @@ private:
   bool alloc_page_common(ZPageAllocation* allocation);
 
   /**
-   * minor-gc的入口点. TODO 看看返回值代表什么
+   * minor-gc的入口点
+   * @return gc结束后是否还有空闲内存用于分配页表
    */
   bool alloc_page_stall(ZPageAllocation* allocation);
 
@@ -172,10 +173,10 @@ private:
   bool is_alloc_satisfied(ZPageAllocation* allocation) const;
 
   /**
-   * 首先从freelist中提取一块尺寸合适的虚拟内存(此时只是逻辑占位符), 失败时返回null
-   * 然后合并转移到当前分配任务中的页表, 页表尺寸不足时再从逻辑真实内存中提取剩余所需的地址段
+   * 首先从逻辑虚拟内存中提取一块尺寸合适的连续地址段, 失败时返回null
+   * 然后将转移到当前分配任务中的页表做合并, 页表尺寸不足时再从逻辑真实内存中提取剩余所需的地址段
    * 最后构造页表对象
-   * 页表内存的映射和提交在后续步骤中完成
+   * 页表内存的映射和提交的系统调用在后续步骤中完成
    */
   ZPage* alloc_page_create(ZPageAllocation* allocation);
 
@@ -183,8 +184,6 @@ private:
    * 当转移给分配任务的页表数恰好为1时, 会检查页表的类型和尺寸是否合适, 如果合适之间返回这个页表
    * 否则:
    * 首先执行alloc_page_create合并创建页表对象, 然后执行内存的提交和映射
-   * 合并当前分配任务的已转移页表, 合并构造页表对象
-   * 这个阶段会执行内存的提交和映射
    * 如果内存提交失败, 则将合并后的页表拆分为已提交和未提交的两部分, 已提交的部分建立内存映射, 并回收到分配任务的页列表中
    */
   ZPage* alloc_page_finalize(ZPageAllocation* allocation);
@@ -212,7 +211,7 @@ private:
 
   /**
    * minor-gc结束, 但是仍然有等待内存的页表分配任务时调用到该函数
-   * 可能会触发major-gc
+   * 如果此时没有另外发生过minor-gc, 则会触发major-gc
    */
   void restart_gc() const;
 

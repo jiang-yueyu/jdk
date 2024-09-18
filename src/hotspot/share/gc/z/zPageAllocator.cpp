@@ -972,7 +972,7 @@ void ZPageAllocator::restart_gc() const {
     return;
   }
 
-  if (!has_alloc_seen_young(allocation)) {
+  if (!has_alloc_seen_young(allocation)) { // 这个状态代表期间没有另外发生过minor-gc
     // Start asynchronous minor GC, keep allocation requests enqueued
     const ZDriverRequest request(GCCause::_z_allocation_stall, ZYoungGCThreads, 0);
     ZDriver::minor()->collect(request);
