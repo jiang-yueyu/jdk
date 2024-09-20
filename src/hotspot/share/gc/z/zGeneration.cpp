@@ -530,6 +530,7 @@ bool ZGenerationYoung::should_record_stats() {
 void ZGenerationYoung::collect(ZYoungType type, ConcurrentGCTimer* timer) {
   ZGenerationCollectionScopeYoung scope(type, timer);
 
+  // 维护状态, 包括各个计数器和指针颜色等, 清空各个分配器的共享页表
   // Phase 1: Pause Mark Start
   pause_mark_start();
 
@@ -626,6 +627,7 @@ public:
     ZStatTimerYoung timer(ZPhasePauseMarkStartYoung);
     ZServiceabilityPauseTracer tracer;
 
+    // 这一步只是更新计数器
     ZCollectedHeap::heap()->increment_total_collections(false /* full */);
     ZGeneration::young()->mark_start();
 
@@ -852,9 +854,11 @@ void ZGenerationYoung::concurrent_relocate() {
 void ZGenerationYoung::mark_start() {
   assert(SafepointSynchronize::is_at_safepoint(), "Should be at safepoint");
 
+  // 更新全局的正确指针颜色
   // Change good colors
   flip_mark_start();
 
+  // 这一步相当于清空各个分配器的共享页表
   // Retire allocating pages
   ZAllocator::eden()->retire_pages();
   for (ZPageAge i = ZPageAge::survivor1; i <= ZPageAge::survivor14; i = static_cast<ZPageAge>(static_cast<uint>(i) + 1)) {

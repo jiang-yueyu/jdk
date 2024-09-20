@@ -698,6 +698,9 @@ public:
   }
 };
 
+/**
+ * 仅当对象地址所属的页表是年轻代(新生代和存活区)时才执行标记
+ */
 class ZMarkYoungOopClosure : public OopClosure {
 public:
   virtual void do_oop(oop* p) {
@@ -872,7 +875,15 @@ public:
 class ZMarkYoungRootsTask : public ZTask {
 private:
   ZMark* const               _mark;
+
+  /**
+   * 接受类加载器数据和对象数据
+   */
   ZRootsIteratorAllColored   _roots_colored;
+
+  /**
+   * 接受线程数据和类元数据
+   */
   ZRootsIteratorAllUncolored _roots_uncolored;
 
   ZMarkYoungOopClosure       _cl_colored;
@@ -882,6 +893,9 @@ private:
   ZMarkYoungNMethodClosure   _nm_cl;
 
 public:
+  /**
+   * 这里的ZGenerationIdOptional仅用于维护计数器, 分代的判断是在zXxYongXxClosure里执行的
+   */
   ZMarkYoungRootsTask(ZMark* mark)
     : ZTask("ZMarkYoungRootsTask"),
       _mark(mark),
