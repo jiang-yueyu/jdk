@@ -58,6 +58,16 @@ public:
   ZPage* register_and_clone_if_activated(ZPage* page);
 };
 
+/**
+ * 页表分配器
+ * 堆内存和进程内存的关联都在这个入口点维护
+ * 页表分配的基本流程为:
+ * 1. 检查剩余的地址空间是否充足
+ * 2. 提取尺寸合适的地址段
+ * 3. 分段执行内存分配, 并统一映射到一块连续的虚拟内存上
+ * 4. 对外返回页表对象
+ * 5. 内存不足时, 挂起内存分配任务并发起gc
+ */
 class ZPageAllocator {
   friend class VMStructs;
   friend class ZUnmapper;

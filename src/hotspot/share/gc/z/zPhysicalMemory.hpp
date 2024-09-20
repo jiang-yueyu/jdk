@@ -84,6 +84,7 @@ public:
  * 因为物理内存一般不会直接不会暴露给用户进程, 暂且把此处的内存称为真实内存
  * 在虚拟机访问堆内存的过程中, 程序直接访问的是虚拟内存, 操作系统根据注册好的内存映射将读写操作转发到真实内存上, 所以真实内存可以是零散的小块地址段, 只要总长度足够即可
  * 在windows系统上直接将真实内存分配为若干个2M大小的内存块
+ * 程序在启动阶段就已经定义好内存分配的地址, 然后按照提取逻辑地址段-分配内存-映射到虚拟内存的顺序分配可访问的堆内存
  */
 class ZPhysicalMemoryManager {
 private:
@@ -102,15 +103,40 @@ public:
   void warn_commit_limits(size_t max_capacity) const;
   void try_enable_uncommit(size_t min_capacity, size_t max_capacity);
 
+
+  /**
+   * 从freelist中提取地址段放到pmem中, 地址段可以是零散的
+   */
   void alloc(ZPhysicalMemory& pmem, size_t size);
+
+  /**
+   * 将地址段退回到freelist当中
+   */
   void free(const ZPhysicalMemory& pmem);
 
+  /**
+   * 这一步相当于执行若干次malloc, 只不过起始地址已经指定好了
+   */
   bool commit(ZPhysicalMemory& pmem);
+
+  /**
+   * 这一步相当于执行若干次free
+   */
   bool uncommit(ZPhysicalMemory& pmem);
 
+  /**
+   * 对地址段做一次写操作. TODO 注释没看懂, 有空研究下这步的目的是什么
+   */
   void pretouch(zoffset offset, size_t size) const;
 
+  /**
+   * 将pmem中零散的地址段映射到offset上, 对程序而言offset就是一个连续的可用内存空间
+   */
   void map(zoffset offset, const ZPhysicalMemory& pmem) const;
+
+  /**
+   * 解除内存映射, 并继续保留虚拟地址占位符
+   */
   void unmap(zoffset offset, size_t size) const;
 };
 
