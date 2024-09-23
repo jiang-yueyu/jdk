@@ -39,6 +39,9 @@ const  size_t    ZAddressOffsetShift = 0;
 extern uintptr_t ZAddressOffsetMask;
 extern size_t    ZAddressOffsetMax;
 
+/**
+ * ?? TODO remembered是分代式zgc新增的标记, 看下含义是什么 ??
+ */
 // Layout of metadata bits in colored pointer / zpointer.
 //
 // A zpointer is a combination of the address bits (heap base bit + offset)
@@ -278,7 +281,14 @@ public:
 
 class ZAddress : public AllStatic {
 public:
+  /**
+   * 给地址染上指定的颜色
+   */
   static zpointer color(zaddress addr, uintptr_t color);
+  
+  /**
+   * 给地址染上指定的颜色
+   */
   static zpointer color(zaddress_unsafe addr, uintptr_t color);
 
   static zoffset offset(zaddress addr);
@@ -288,6 +298,11 @@ public:
   static zpointer finalizable_good(zaddress addr, zpointer prev);
   static zpointer mark_good(zaddress addr, zpointer prev);
   static zpointer mark_old_good(zaddress addr, zpointer prev);
+
+  /**
+   * 新地址和旧指针仍然等价, 提取出旧指针的老年代染色标记, 组合染色为
+   * ZPointerLoadGoodMask | ZPointerMarkedYoung | prev.old_marked | ZPointerRememberedMask
+   */
   static zpointer mark_young_good(zaddress addr, zpointer prev);
   static zpointer store_good(zaddress addr);
   static zpointer store_good_or_null(zaddress addr);
@@ -303,6 +318,9 @@ private:
 public:
   static void initialize();
 
+  /**
+   * ZPointerMarkedYoung ZPointerRemembered 切换01相位
+   */
   static void flip_young_mark_start();
   static void flip_young_relocate_start();
   static void flip_old_mark_start();

@@ -700,6 +700,9 @@ public:
 
 /**
  * 仅当对象地址所属的页表是年轻代(新生代和存活区)时才执行标记
+ * 此处接受的oop*是二级指针, 直接在一级指针上执行染色标记
+ * 此处的标记会将指针颜色调整为ZPointerLoadGoodMask | ZPointerMarkedYoung | ZPointerRememberedMask
+ * 标记过程会将对象的对象类型字段推入标记栈中
  */
 class ZMarkYoungOopClosure : public OopClosure {
 public:

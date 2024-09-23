@@ -108,6 +108,9 @@ private:
   ZMajorTracer      _jfr_tracer;
   size_t            _used_at_start;
 
+  /**
+   * ?? TODO 看看三种YoungType分别代表什么 ??
+   */
   void collect_young(const ZDriverRequest& request);
 
   void collect_old();

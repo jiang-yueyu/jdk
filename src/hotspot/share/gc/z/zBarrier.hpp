@@ -82,9 +82,19 @@ private:
   static void assert_transition_monotonicity(zpointer ptr, zpointer heal_ptr);
   static void self_heal(ZBarrierFastPath fast_path, volatile zpointer* p, zpointer ptr, zpointer heal_ptr, bool allow_null);
 
+  /**
+   * @param fast_path 判断一个指针是否已经通过屏障
+   * @param slow_path 执行屏障逻辑
+   * @param color 将通过屏障的地址值和旧指针的颜色, 染色生成新指针
+   * @param p 原始二级指针
+   * @param o 二级指针指向的java对象
+   */
   template <typename ZBarrierSlowPath>
   static zaddress barrier(ZBarrierFastPath fast_path, ZBarrierSlowPath slow_path, ZBarrierColor color, volatile zpointer* p, zpointer o, bool allow_null = false);
 
+  /**
+   * 将指针转换到最新的地址, 期间会执行必要的转移动作
+   */
   static zaddress make_load_good(zpointer ptr);
   static zaddress make_load_good_no_relocate(zpointer ptr);
   static zaddress relocate_or_remap(zaddress_unsafe addr, ZGeneration* generation);
@@ -99,6 +109,9 @@ private:
   static bool is_store_good_or_null_fast_path(zpointer ptr);
   static bool is_store_good_or_null_any_fast_path(zpointer ptr);
 
+  /**
+   * 非null && ZPointer::is_load_good && ZPointer::is_marked_young
+   */
   static bool is_mark_young_good_fast_path(zpointer ptr);
   static bool is_finalizable_good_fast_path(zpointer ptr);
 
@@ -109,6 +122,10 @@ private:
   static zaddress blocking_load_barrier_on_phantom_slow_path(volatile zpointer* p, zaddress addr);
 
   static zaddress mark_slow_path(zaddress addr);
+
+  /**
+   * 如果地址对应的是年轻代对象, 则执行一次标记
+   */
   static zaddress mark_young_slow_path(zaddress addr);
   static zaddress mark_from_young_slow_path(zaddress addr);
   static zaddress mark_from_old_slow_path(zaddress addr);
@@ -171,6 +188,11 @@ public:
   static void mark_barrier_on_young_oop_field(volatile zpointer* p);
   static void mark_barrier_on_old_oop_field(volatile zpointer* p, bool finalizable);
   static void mark_barrier_on_oop_field(volatile zpointer* p, bool finalizable);
+
+  /**
+   * 对未经历过本轮标记的年轻代对象进行一次标记
+   * 并将指针颜色调整为ZPointerLoadGoodMask | ZPointerMarkedYoung | ZPointerRememberedMask
+   */
   static void mark_young_good_barrier_on_oop_field(volatile zpointer* p);
   static zaddress remset_barrier_on_oop_field(volatile zpointer* p);
   static void promote_barrier_on_young_oop_field(volatile zpointer* p);

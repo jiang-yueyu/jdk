@@ -432,10 +432,6 @@ inline zpointer color_mark_good(zaddress new_addr, zpointer old_ptr) {
   return ZAddress::mark_good(new_addr, old_ptr);
 }
 
-inline zpointer color_mark_young_good(zaddress new_addr, zpointer old_ptr) {
-  return ZAddress::mark_young_good(new_addr, old_ptr);
-}
-
 inline zpointer color_remset_good(zaddress new_addr, zpointer old_ptr) {
   if (new_addr == zaddress::null || ZHeap::heap()->is_young(new_addr)) {
     return ZAddress::mark_good(new_addr, old_ptr);
@@ -689,7 +685,7 @@ inline zaddress ZBarrier::remset_barrier_on_oop_field(volatile zpointer* p) {
 
 inline void ZBarrier::mark_young_good_barrier_on_oop_field(volatile zpointer* p) {
   const zpointer o = load_atomic(p);
-  barrier(is_mark_young_good_fast_path, mark_young_slow_path, color_mark_young_good, p, o);
+  barrier(is_mark_young_good_fast_path, mark_young_slow_path, ZAddress::mark_young_good, p, o);
 }
 
 //
