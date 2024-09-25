@@ -428,6 +428,10 @@ void ZMark::mark_and_follow(ZMarkContext* context, ZMarkStackEntry entry) {
   const zaddress addr = ZOffset::address(to_zoffset(entry.object_address()));
   const bool mark = entry.mark();
   bool inc_live = entry.inc_live();
+
+  /**
+   * Note 可见地址入栈的时候都是true
+   */
   const bool follow = entry.follow();
 
   ZPage* const page = _page_table->get(addr);

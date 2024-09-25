@@ -154,6 +154,11 @@ public:
   bool is_object_marked_live(zaddress addr) const;
   bool is_object_marked_strong(zaddress addr) const;
   bool is_object_marked(zaddress addr, bool finalizable) const;
+
+  /**
+   * 标记地址, 实际上就是在bitset里设置标记位
+   * @param finalizable 这个值决定在哪个表里设置标记位
+   */
   bool mark_object(zaddress addr, bool finalizable, bool& inc_live);
 
   void inc_live(uint32_t objects, size_t bytes);

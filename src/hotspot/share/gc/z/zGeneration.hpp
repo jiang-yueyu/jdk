@@ -161,6 +161,10 @@ public:
   ZRelocationSetParallelIterator relocation_set_parallel_iterator();
 
   // Marking
+  
+  /**
+   * 可见地址标记的时候follow都是true
+   */
   template <bool resurrect, bool gc_thread, bool follow, bool finalizable>
   void mark_object(zaddress addr);
   template <bool resurrect, bool gc_thread, bool follow, bool finalizable>

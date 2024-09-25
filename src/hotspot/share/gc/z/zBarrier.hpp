@@ -127,6 +127,10 @@ private:
    * 如果地址对应的是年轻代对象, 则执行一次标记
    */
   static zaddress mark_young_slow_path(zaddress addr);
+  
+  /**
+   * 如果地址是年轻代对象则执行标记; 如果此时正在执行major-gc也会执行标记
+   */
   static zaddress mark_from_young_slow_path(zaddress addr);
   static zaddress mark_from_old_slow_path(zaddress addr);
   static zaddress mark_finalizable_slow_path(zaddress addr);

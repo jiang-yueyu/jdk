@@ -76,14 +76,36 @@ private:
   void follow_array_elements_large(zpointer* addr, size_t length, bool finalizable);
   void follow_array_elements(zpointer* addr, size_t length, bool finalizable);
   void follow_partial_array(ZMarkStackEntry entry, bool finalizable);
+
+  /**
+   * 使用ZMarkBarrierFollowOopClosure对元素执行标记; 如果是full-gc或者老年代正处于标记阶段, 也会标记类对象
+   * @see ZMarkBarrierFollowOopClosure
+   */
   void follow_array_object(objArrayOop obj, bool finalizable);
+
+  /**
+   * 使用ZMarkBarrierFollowOopClosure标记类和字段值里的对象
+   * @see ZMarkBarrierFollowOopClosure
+   */
   void follow_object(oop obj, bool finalizable);
+
+  /**
+   * 标记entry中取出的地址, 并将对象里的字段值对象推入标记栈中
+   */
   void mark_and_follow(ZMarkContext* context, ZMarkStackEntry entry);
 
   bool rebalance_work(ZMarkContext* context);
+
+  /**
+   * 执行出栈和标记, 直到栈被清空
+   */
   bool drain(ZMarkContext* context);
   bool try_steal_local(ZMarkContext* context);
   bool try_steal_global(ZMarkContext* context);
+
+  /**
+   * 将标记任务转移到标记栈中 ?? TODO 看看stripe有什么作用 ??
+   */
   bool try_steal(ZMarkContext* context);
   bool flush();
   bool try_proactive_flush();
@@ -103,6 +125,9 @@ public:
 
   bool is_initialized() const;
 
+  /**
+   * @tparam follow 可见地址标记的时候follow都是true
+   */
   template <bool resurrect, bool gc_thread, bool follow, bool finalizable>
   void mark_object(zaddress addr);
 
