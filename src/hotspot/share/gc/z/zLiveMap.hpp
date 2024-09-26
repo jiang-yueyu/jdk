@@ -86,6 +86,10 @@ public:
   size_t live_bytes() const;
 
   bool get(ZGenerationId id, BitMap::idx_t index) const;
+
+  /**
+   * 首先更新自身分代年龄, 然后设置标记位
+   */
   bool set(ZGenerationId id, BitMap::idx_t index, bool finalizable, bool& inc_live);
 
   void inc_live(uint32_t objects, size_t bytes);

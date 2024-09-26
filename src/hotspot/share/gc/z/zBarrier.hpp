@@ -141,6 +141,9 @@ private:
   static zaddress native_store_slow_path(zaddress addr);
   static zaddress no_keep_alive_heap_store_slow_path(volatile zpointer* p, zaddress addr);
 
+  /**
+   * 什么都不做直接返回地址
+   */
   static zaddress promote_slow_path(zaddress addr);
 
   // Helpers for non-strong oop refs barriers
@@ -199,8 +202,15 @@ public:
    */
   static void mark_young_good_barrier_on_oop_field(volatile zpointer* p);
   static zaddress remset_barrier_on_oop_field(volatile zpointer* p);
+
+  /**
+   * 染色成ZPointerStoreGoodMask
+   */
   static void promote_barrier_on_young_oop_field(volatile zpointer* p);
 
+  /**
+   * Store barrier似乎只用于jit, c1和c2各有一个引用
+   */
   // Store barrier
   static void store_barrier_on_heap_oop_field(volatile zpointer* p, bool heal);
   static void store_barrier_on_native_oop_field(volatile zpointer* p, bool heal);

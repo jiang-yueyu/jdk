@@ -52,8 +52,8 @@ class ZGeneration {
   friend class ZLiveMapTest;
 
 protected:
-  static ZGenerationYoung* _young;
-  static ZGenerationOld*   _old;
+  static ZGenerationYoung* _young; // 初始化后不变
+  static ZGenerationOld*   _old; // 初始化后不变
 
   enum class Phase {
     Mark,
@@ -89,13 +89,25 @@ protected:
 
   ConcurrentGCTimer*    _gc_timer;
 
+  /**
+   * 当selector中的空页表数量大于bulk时回收掉空页表
+   */
   void free_empty_pages(ZRelocationSetSelector* selector, int bulk);
+
+  /**
+   * 对未选中的年轻代页表执行晋升
+   */
   void flip_age_pages(const ZRelocationSetSelector* selector);
   void flip_age_pages(const ZArray<ZPage*>* pages);
 
   void mark_free();
 
   void select_relocation_set(ZGenerationId generation, bool promote_all);
+
+  /**
+   * 1. 遍历_relocation_set, 将所有的元素从_forwarding_table中移除
+   * 2. 重置掉所有的转发表, 然后销毁掉相关的页表对象(仅销毁对象并清空容器, 但不回收页表内存)
+   */
   void reset_relocation_set();
 
   ZGeneration(ZGenerationId id, ZPageTable* page_table, ZPageAllocator* page_allocator);
@@ -222,8 +234,21 @@ private:
   void pause_mark_start();
   void concurrent_mark();
   bool pause_mark_end();
+
+  /**
+   * 执行mark_follow
+   */
   void concurrent_mark_continue();
+
+  /**
+   * 执行内存清理, 回收掉标记容器所需的内存
+   */
   void concurrent_mark_free();
+
+  /**
+   * 1. 遍历_relocation_set, 将所有的元素从_forwarding_table中移除
+   * 2. 重置掉所有的转发表, 然后销毁掉相关的页表对象(仅销毁对象并清空容器, 但不回收页表内存)
+   */
   void concurrent_reset_relocation_set();
   void concurrent_select_relocation_set();
   void pause_relocate_start();

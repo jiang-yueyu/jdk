@@ -52,7 +52,16 @@ private:
 public:
   ZRelocationSet(ZGeneration* generation);
 
+  /**
+   * 将选中的页表插入转移集, 并对选中的页表执行必要的晋升动作
+   */
   void install(const ZRelocationSetSelector* selector);
+
+  /**
+   * 首先重置掉所有的转发表, 然后销毁掉相关的页表对象
+   * 此处的销毁是仅销毁对象并清空数组, 但不回收页表内存
+   * _flip_promoted_pages _in_place_relocate_promoted_pages两个页表数组
+   */
   void reset(ZPageAllocator* page_allocator);
   ZGeneration* generation() const;
   ZArray<ZPage*>* flip_promoted_pages();

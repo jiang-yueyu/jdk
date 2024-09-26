@@ -41,6 +41,7 @@ extern size_t    ZAddressOffsetMax;
 
 /**
  * ?? TODO remembered是分代式zgc新增的标记, 看下含义是什么 ??
+ * store-barrier似乎只用于jit, c1c2各有一个引用
  */
 // Layout of metadata bits in colored pointer / zpointer.
 //

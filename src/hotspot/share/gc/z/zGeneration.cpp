@@ -213,6 +213,7 @@ void ZGeneration::select_relocation_set(ZGenerationId generation, bool promote_a
         // Register live page
         selector.register_live_page(page);
       } else {
+        // 如果livemap的年龄不等于当前年龄, 就代表页表上没有对象被标记过, 反推出页表为空
         // Register empty page
         selector.register_empty_page(page);
 

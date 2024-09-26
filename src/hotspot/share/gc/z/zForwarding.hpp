@@ -143,6 +143,9 @@ public:
   void in_place_relocation_finish();
   bool in_place_relocation_is_below_top_at_start(zoffset addr) const;
 
+  /**
+   * false代表该转发表已经失效, 否则增加引用计数并返回true
+   */
   bool retain_page(ZRelocateQueue* queue);
   void release_page();
 

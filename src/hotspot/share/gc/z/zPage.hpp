@@ -102,8 +102,19 @@ public:
   bool is_medium() const;
   bool is_large() const;
 
+  /**
+   * young/old分代, 不是具体的年龄分区
+   */
   ZGenerationId generation_id() const;
+
+  /**
+   * young/old分代, 不是具体的年龄分区
+   */
   bool is_young() const;
+
+  /**
+   * young/old分代, 不是具体的年龄分区
+   */
   bool is_old() const;
   zoffset start() const;
   zoffset_end end() const;
@@ -117,10 +128,18 @@ public:
   ZPhysicalMemory& physical_memory();
 
   uint8_t numa_id();
+
+  /**
+   * young/survivor/old分区
+   */
   ZPageAge age() const;
 
   uint32_t seqnum() const;
   bool is_allocating() const;
+
+  /**
+   * 如果当前页表的分代年龄小于分代计数, 返回true
+   */
   bool is_relocatable() const;
 
   uint64_t last_used() const;
@@ -150,6 +169,10 @@ public:
   bool is_object_live(zaddress addr) const;
   bool is_object_strongly_live(zaddress addr) const;
 
+  /**
+   * livemap的分代年龄等于代计数时返回true
+   * livemap的年龄反映出页表上是否有对象被标记过, 可以反推页表是否为空
+   */
   bool is_marked() const;
   bool is_object_marked_live(zaddress addr) const;
   bool is_object_marked_strong(zaddress addr) const;
@@ -158,6 +181,7 @@ public:
   /**
    * 标记地址, 实际上就是在bitset里设置标记位
    * @param finalizable 这个值决定在哪个表里设置标记位
+   * @param inc_live 一定会被赋值
    */
   bool mark_object(zaddress addr, bool finalizable, bool& inc_live);
 

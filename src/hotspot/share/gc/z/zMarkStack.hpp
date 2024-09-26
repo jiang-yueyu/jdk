@@ -79,6 +79,10 @@ using ZMarkStackMagazineList = ZStackList<ZMarkStackMagazine>;
 static_assert(sizeof(ZMarkStack) == ZMarkStackSize, "ZMarkStack size mismatch");
 static_assert(sizeof(ZMarkStackMagazine) <= ZMarkStackSize, "ZMarkStackMagazine size too large");
 
+/**
+ * 标记栈的容器, 分为溢出列表和发布列表两个存储器
+ * ?? TODO 两个存储器有什么作用 ??
+ */
 class ZMarkStripe {
 private:
   ZCACHE_ALIGNED ZMarkStackList _published;
@@ -87,9 +91,20 @@ private:
 public:
   explicit ZMarkStripe(uintptr_t base = 0);
 
+  /**
+   * 两个存储器均为空
+   */
   bool is_empty() const;
 
+  /**
+   * 根据publish决定将标记栈插入到哪个列表, 然后对terminate执行唤醒
+   * ?? TODO 唤醒有什么作用 ??
+   */
   void publish_stack(ZMarkStack* stack, ZMarkTerminate* terminate, bool publish);
+
+  /**
+   * 优先从溢出列表中取出标记栈, 列表空时再从发布列表中取
+   */
   ZMarkStack* steal_stack();
 };
 
@@ -108,6 +123,10 @@ public:
 
   size_t stripe_id(const ZMarkStripe* stripe) const;
   ZMarkStripe* stripe_at(size_t index);
+
+  /**
+   * 根据地址偏移量取到入参stripe的相邻stripe, 地址回环
+   */
   ZMarkStripe* stripe_next(ZMarkStripe* stripe);
   ZMarkStripe* stripe_for_worker(uint nworkers, uint worker_id);
   ZMarkStripe* stripe_for_addr(uintptr_t addr);
@@ -121,6 +140,12 @@ private:
   ZMarkStack*         _stacks[ZMarkStripesMax];
 
   ZMarkStack* allocate_stack(ZMarkStackAllocator* allocator);
+
+  /**
+   * 如果_magazine为null, 将stack原地转换为_magazine
+   * 否则将stack推入_magazine中, 直到_magazine被装满, 此时stack被直接放弃
+   * ?? TODO _magazine看上去像一个缓冲池, 看看是不是这么用的 ??
+   */
   void free_stack(ZMarkStackAllocator* allocator, ZMarkStack* stack);
 
   bool push_slow(ZMarkStackAllocator* allocator,
@@ -130,6 +155,11 @@ private:
                  ZMarkStackEntry entry,
                  bool publish);
 
+  /**
+   * 优先取stackp, 如果*stackp为null, 则从stripe中取标记栈, 从取到的栈上执行出栈
+   * 如果栈为空, 则进入到栈的回收流程
+   * @param allocator 用于执行stack/magazine的回收
+   */
   bool pop_slow(ZMarkStackAllocator* allocator,
                 ZMarkStripe* stripe,
                 ZMarkStack** stackp,
@@ -140,10 +170,20 @@ public:
 
   bool is_empty(const ZMarkStripeSet* stripes) const;
 
+  /**
+   * 将栈放置到指定的位置上
+   * @param stripes 仅用于定位下标
+   * @param stripe 仅用于定位下标
+   */
   void install(ZMarkStripeSet* stripes,
                ZMarkStripe* stripe,
                ZMarkStack* stack);
 
+  /**
+   * 将指定位置上的标记栈转移出来
+   * @param stripes 仅用于定位下标
+   * @param stripe 仅用于定位下标
+   */
   ZMarkStack* steal(ZMarkStripeSet* stripes,
                     ZMarkStripe* stripe);
 
@@ -154,6 +194,10 @@ public:
             ZMarkStackEntry entry,
             bool publish);
 
+  /**
+   * 首先从当前线程数据中取值, 取不到时再从stripe容器的栈中取值
+   * @param stripes 仅用于定位下标
+   */
   bool pop(ZMarkStackAllocator* allocator,
            ZMarkStripeSet* stripes,
            ZMarkStripe* stripe,

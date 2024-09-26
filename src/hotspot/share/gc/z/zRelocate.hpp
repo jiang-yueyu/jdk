@@ -91,9 +91,23 @@ public:
 
   static void add_remset(volatile zpointer* p);
 
+  /**
+   * 如果from_age是old或者需要提前晋升, 返回old, 否则返回年龄+1
+   */
   static ZPageAge compute_to_age(ZPageAge from_age);
 
+  /**
+   * 1. 首先在转发表上执行一次地址查找, 如果能查到值代表对象已经被转移, 直接返回转移后的地址
+   * 2. 如果转发表仍然有效, 且目标页表能够分配出相同尺寸的对象, 则直接把对象数据拷贝到新的对象地址上, 然后把新地址插入到转发表
+   * 此时插入失败代表其他线程抢先完成了转移任务, 此时回滚内存分配, 并返回其他线程的转移结果
+   * 3. 走到这一步代表转发表已经失效, 或者目标页表内存不足, 此时会插入到任务队列中等待其他线程执行转移
+   * @return 转移后的地址
+   */
   zaddress relocate_object(ZForwarding* forwarding, zaddress_unsafe from_addr);
+
+  /**
+   * 仅执行查表
+   */
   zaddress forward_object(ZForwarding* forwarding, zaddress_unsafe from_addr);
 
   void relocate(ZRelocationSet* relocation_set);

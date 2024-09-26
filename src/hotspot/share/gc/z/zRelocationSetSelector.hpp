@@ -79,18 +79,46 @@ public:
 class ZRelocationSetSelectorGroup {
 private:
   const char* const                _name;
+
+  /**
+   * 页表类型, 始终固定
+   */
   const ZPageType                  _page_type;
+
+  /**
+   * 页表尺寸, 对于小型页表是常量, 中型页表是启动参数, 大型页表始终为0
+   */
   const size_t                     _page_size;
+
+  /**
+   * 对象尺寸, 对于小型页表是常量, 中型页表是启动参数, 大型页表始终为0
+   */
   const size_t                     _object_size_limit;
   const double                     _fragmentation_limit;
   const size_t                     _page_fragmentation_limit;
   ZArray<ZPage*>                   _live_pages;
+
+  /**
+   * 未被选中的页表, 只有young阶段做flip_age_pages才会被访问到
+   */
   ZArray<ZPage*>                   _not_selected_pages;
   size_t                           _forwarding_entries;
   ZRelocationSetSelectorGroupStats _stats[ZPageAgeMax + 1];
 
+  /**
+   * 如果页表尺寸为中型且页表数量为0时返回true
+   * 中型页表的数量是启动参数控制的, 可以认为不会返回false
+   */
   bool is_disabled();
+
+  /**
+   * 页表尺寸为大型时返回false
+   */
   bool is_selectable();
+
+  /**
+   * 根据页表上活跃对象的尺寸, 对_live_pages做排序
+   */
   void semi_sort();
   void select_inner();
 
@@ -103,6 +131,10 @@ public:
 
   void register_live_page(ZPage* page);
   void register_empty_page(ZPage* page);
+
+  /**
+   * 对于大型页表, 始终把全部页表插入到_not_selected_pages当中, 否则执行select_inner
+   */
   void select();
 
   const ZArray<ZPage*>* live_pages() const;
@@ -127,9 +159,20 @@ private:
 public:
   ZRelocationSetSelector(double fragmentation_limit);
 
+  /**
+   * 根据页表尺寸将它插入到对应的存储器中
+   */
   void register_live_page(ZPage* page);
+
+  /**
+   * 根据页表尺寸将它插入到对应的存储器中
+   */
   void register_empty_page(ZPage* page);
 
+  /**
+   * 当_empty_pages的数量大于bulk时返回true
+   * @param 启动回收任务所需的阈值
+   */
   bool should_free_empty_pages(int bulk) const;
   const ZArray<ZPage*>* empty_pages() const;
   void clear_empty_pages();

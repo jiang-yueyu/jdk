@@ -162,6 +162,10 @@ void ZRelocationSetSelectorGroup::select_inner() {
   // Finalize selection
   for (int i = selected_from; i < _live_pages.length(); i++) {
     ZPage* const page = _live_pages.at(i);
+    /**
+     * Note
+     * 这里的young是generationid, 老年代显然是无需晋升的, 所以只有young才需要塞进列表中
+     */
     if (page->is_young()) {
       _not_selected_pages.append(page);
     }

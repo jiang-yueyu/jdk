@@ -319,6 +319,13 @@ inline zaddress ZBarrier::make_load_good_no_relocate(zpointer o) {
   return remap(ZPointer::uncolor_unsafe(o), remap_generation(o));
 }
 
+/**
+  * @param fast_path 判断一个指针是否已经通过屏障
+  * @param slow_path 执行屏障逻辑
+  * @param color 将通过屏障的地址值和旧指针的颜色, 染色生成新指针
+  * @param p 原始二级指针
+  * @param o 二级指针指向的java对象
+  */
 template <typename ZBarrierSlowPath>
 inline zaddress ZBarrier::barrier(ZBarrierFastPath fast_path, ZBarrierSlowPath slow_path, ZBarrierColor color, volatile zpointer* p, zpointer o, bool allow_null) {
   z_verify_safepoints_are_blocked();

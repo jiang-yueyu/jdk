@@ -100,6 +100,10 @@ private:
    * 执行出栈和标记, 直到栈被清空
    */
   bool drain(ZMarkContext* context);
+
+  /**
+   * 遍历当前标记任务的_stripes, 将标记栈转移到工作位置上
+   */
   bool try_steal_local(ZMarkContext* context);
   bool try_steal_global(ZMarkContext* context);
 
@@ -115,6 +119,10 @@ private:
 
   ZWorkers* workers() const;
 
+  /**
+   * 将能清空的标记栈都清空
+   * @param partial false时会执行terminate
+   */
   bool follow_work(bool partial);
 
   void verify_all_stacks_empty() const;

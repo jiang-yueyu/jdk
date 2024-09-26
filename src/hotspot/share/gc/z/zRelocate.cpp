@@ -320,6 +320,11 @@ void ZRelocate::add_remset(volatile zpointer* p) {
   ZGeneration::young()->remember(p);
 }
 
+/**
+ * 在目标页表上分配一个相同尺寸的空对象, 把对象拷贝过去, 然后把新对象的地址插入到转发表中
+ * 插入失败代表其他线程已经执行了移动任务, 此时把内存分配动作回滚掉
+ * @return null代表目标页表无法分配内存
+ */
 static zaddress relocate_object_inner(ZForwarding* forwarding, zaddress from_addr, ZForwardingCursor* cursor) {
   assert(ZHeap::heap()->is_object_live(from_addr), "Should be live");
 

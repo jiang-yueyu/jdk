@@ -33,6 +33,10 @@ class ZPage;
 class ZPageAllocator;
 class ZPageTable;
 
+/**
+ * 页表是按照2M尺寸对齐的连续地址段, pagetable就是总尺寸/2M的数组
+ * 页表在容器内的插入和移除就是根据下标赋值为页表对象或者null
+ */
 class ZPageTable {
   friend class ZPageTableIterator;
   friend class ZPageTableParallelIterator;
@@ -50,8 +54,19 @@ public:
 
   ZPage* at(size_t index) const;
 
+  /**
+   * 把页表地址覆盖到的元素设置为page
+   */
   void insert(ZPage* page);
+
+  /**
+   * 把页表地址覆盖到的元素设置为null
+   */
   void remove(ZPage* page);
+
+  /**
+   * 把页表地址覆盖到的元素设置为new_page
+   */
   void replace(ZPage* old_page, ZPage* new_page);
 };
 
