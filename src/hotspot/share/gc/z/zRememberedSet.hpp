@@ -79,6 +79,11 @@ public:
   void print_statistics() const;
 };
 
+// Reader Note
+// ZRememberedSet包含current和previous两个存储器
+// 每个存储器都是一个连续内存块, 用1bit代表一个指针值的状态
+// 通过全局变量_current决定内存块代表current还是previous
+//
 // The remembered set of a ZPage.
 //
 // There's one bit per potential object field address within the ZPage.
@@ -90,6 +95,10 @@ class ZRememberedSet {
   friend class ZRememberedSetContainingIterator;
 
 public:
+  /**
+   * 决定存储器是current还是previous
+   * 在mark_start阶段被翻转
+   */
   static int _current;
 
   ZMovableBitMap _bitmap[2];
@@ -108,6 +117,9 @@ public:
   static BitMap::idx_t to_bit_size(size_t size);
 
 public:
+  /**
+   * 在mark_start阶段被翻转, 对换previous和current
+   */
   static void flip();
 
   ZRememberedSet();

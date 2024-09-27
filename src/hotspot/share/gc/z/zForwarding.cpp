@@ -70,6 +70,9 @@ void ZForwarding::in_place_relocation_finish() {
 
   _page->log_msg(" In-place reloc finish - top at start: " PTR_FORMAT, untype(_in_place_top_at_start));
 
+  /**
+   * ?? 只有晋升到老年代的转移不需要执行下面的置零, 看看是为什么 ??
+   */
   if (_from_age == ZPageAge::old || _to_age != ZPageAge::old) {
     // Only do this for non-promoted pages, that still need to reset live map.
     // Done with iterating over the "from-page" view, so can now drop the _livemap.
@@ -94,6 +97,10 @@ bool ZForwarding::retain_page(ZRelocateQueue* queue) {
       return false;
     }
 
+    /**
+     * 小于0代表被in_place_relocation_claim_page函数独占, 此时正在执行原地转移
+     * 直接等它执行结束并返回false
+     */
     if (ref_count < 0) {
       // Claimed
       queue->add_and_wait(this);

@@ -37,6 +37,9 @@ class ZLiveMap {
 private:
   static const size_t nsegments = 64;
 
+  /**
+   * 用这个年龄和当前分代年龄比较, 可以判断出livemap的拥有者是否被标记过
+   */
   volatile uint32_t _seqnum;
   volatile uint32_t _live_objects;
   volatile size_t   _live_bytes;

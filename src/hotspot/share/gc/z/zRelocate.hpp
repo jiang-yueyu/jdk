@@ -48,7 +48,15 @@ private:
   void inc_needs_attention();
   void dec_needs_attention();
 
+  /**
+   * 移除掉已经完成的转发表
+   * @return 发生过移除操作
+   */
   bool prune();
+
+  /**
+   * 首先移除掉已经完成的转发表, 返回第一个能加锁的转发表
+   */
   ZForwarding* prune_and_claim();
 
 public:
@@ -62,8 +70,15 @@ public:
   void resize_workers(uint nworkers);
   void leave();
 
+  /**
+   * 等待转发表上的转发任务被gc线程处理完
+   */
   void add_and_wait(ZForwarding* forwarding);
 
+  /**
+   * 在concurrent_relocate阶段被调用
+   * 清理掉已完成的转发表, 返回第一个能加锁的转发表
+   */
   ZForwarding* synchronize_poll();
   void synchronize_thread();
   void desynchronize_thread();
@@ -100,7 +115,7 @@ public:
    * 1. 首先在转发表上执行一次地址查找, 如果能查到值代表对象已经被转移, 直接返回转移后的地址
    * 2. 如果转发表仍然有效, 且目标页表能够分配出相同尺寸的对象, 则直接把对象数据拷贝到新的对象地址上, 然后把新地址插入到转发表
    * 此时插入失败代表其他线程抢先完成了转移任务, 此时回滚内存分配, 并返回其他线程的转移结果
-   * 3. 走到这一步代表转发表已经失效, 或者目标页表内存不足, 此时会插入到任务队列中等待其他线程执行转移
+   * 3. 走到这一步代表转发表已经失效, 或者目标页表内存不足, 此时会插入到任务队列中, concurrent_relocate阶段会处理这部分任务
    * @return 转移后的地址
    */
   zaddress relocate_object(ZForwarding* forwarding, zaddress_unsafe from_addr);

@@ -45,6 +45,10 @@ private:
   size_t               _nforwardings;
   ZLock                _promotion_lock;
   ZArray<ZPage*>       _flip_promoted_pages;
+
+  /**
+   * 收集原地转移并晋升的旧列表, 用于后续的页表对象销毁
+   */
   ZArray<ZPage*>       _in_place_relocate_promoted_pages;
 
   ZWorkers* workers() const;
@@ -67,6 +71,10 @@ public:
   ZArray<ZPage*>* flip_promoted_pages();
 
   void register_flip_promoted(const ZArray<ZPage*>& pages);
+
+  /**
+   * 将原地转移并晋升的起始页表追加到_in_place_relocate_promoted_pages
+   */
   void register_in_place_relocate_promoted(ZPage* page);
 };
 

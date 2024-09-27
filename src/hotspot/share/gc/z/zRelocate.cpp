@@ -404,6 +404,9 @@ static ZPage* alloc_page(ZAllocatorForRelocation* allocator, ZPageType type, siz
   return allocator->alloc_page_for_relocation(type, size, flags);
 }
 
+/**
+ * 更新分代的统计值, 当页表为空时将其释放
+ */
 static void retire_target_page(ZGeneration* generation, ZPage* page) {
   if (generation->is_young() && page->is_old()) {
     generation->increase_promoted(page->used());
@@ -569,13 +572,27 @@ private:
   ZForwarding*       _forwarding;
   ZPage*             _target[ZAllocator::_relocation_allocators];
   ZGeneration* const _generation;
+
+  /**
+   * 统计值, 被其他线程转移走且存在晋升的对象尺寸
+   */
   size_t             _other_promoted;
+
+  /**
+   * 统计值, 被其他线程转移走且不存在晋升的对象尺寸
+   */
   size_t             _other_compacted;
 
+  /**
+   * 获取指定年龄的目标转移页表, 不是所有的调用场景都能接受null值
+   */
   ZPage* target(ZPageAge age) {
     return _target[static_cast<uint>(age) - 1];
   }
 
+  /**
+   * 设置该年龄的目标转移页表
+   */
   void set_target(ZPageAge age, ZPage* page) {
     _target[static_cast<uint>(age) - 1] = page;
   }
@@ -593,10 +610,21 @@ private:
     }
   }
 
+  /**
+   * 如果对象地址已经被转移, 则返回转移后的地址
+   * 如果无法在目标页表上分配出相同尺寸的对象, 返回null
+   * 将对象复制到目标地址上, 然后把目标地址插入到转发表中
+   * 插入失败代表已经被其他线程转移走了, 回滚内存分配
+   * @return 转移后的地址
+   */
   zaddress try_relocate_object_inner(zaddress from_addr) {
     ZForwardingCursor cursor;
 
     const size_t size = ZUtils::object_size(from_addr);
+
+    /**
+     * 这一步的返回可以是null
+     */
     ZPage* const to_page = target(_forwarding->to_age());
 
     // Lookup forwarding
@@ -609,6 +637,9 @@ private:
       }
     }
 
+    /**
+     * 如果to_page是null则直接返回null
+     */
     // Allocate object
     const zaddress allocated_addr = _allocator->alloc_object(to_page, size);
     if (is_null(allocated_addr)) {
@@ -785,6 +816,11 @@ private:
     ZIterator::basic_oop_iterate(to_oop(to_addr), update_remset_promoted_filter_and_remap_per_field);
   }
 
+  /**
+   * 如果目标年龄不是老年代, 直接返回
+   * 如果是老年代到老年代的转移 ?? TODO ??
+   * 否则 ?? TODO ??
+   */
   void update_remset_for_fields(zaddress from_addr, zaddress to_addr) const {
     if (_forwarding->to_age() != ZPageAge::old) {
       // No remembered set in young pages
@@ -801,6 +837,14 @@ private:
     update_remset_promoted(to_addr);
   }
 
+  /**
+   * 在现有的目标页表上执行分配和转移, 不涉及到页表分配
+   * 如果对象地址已经被转移, 则返回转移后的地址
+   * 如果无法在目标页表上分配出相同尺寸的对象, 返回null
+   * 将对象复制到目标地址上, 然后把目标地址插入到转发表中
+   * 插入失败代表已经被其他线程转移走了, 回滚内存分配
+   * 新地址值为null代表转移失败, 否则 ?? TODO ??
+   */
   bool try_relocate_object(zaddress from_addr) {
     const zaddress to_addr = try_relocate_object_inner(from_addr);
 
@@ -837,6 +881,15 @@ private:
     }
   }
 
+  /**
+   * 1. 首先等待当前线程独占转发表
+   * 2. 给转发表设置原地转移的初始标记
+   * 3. 如果需要晋升则复制一份页表对象作为目标页表, 否则直接将自身当作目标
+   * 4. 调整目标页表的年龄
+   * 5. 如果需要晋升到老年代, 则执行页表置换 & 分代内存尺寸调整 & 将旧页表注册到待回收列表中
+   * 6. 返回新页表
+   * @param relocated_watermark 仅用于记录日志
+   */
   ZPage* start_in_place_relocation(zoffset relocated_watermark) {
     _forwarding->in_place_relocation_claim_page();
     _forwarding->in_place_relocation_start(relocated_watermark);
@@ -847,7 +900,8 @@ private:
     const bool promotion = _forwarding->is_promotion();
 
     /**
-     * TODO ?? 这里为什么不直用from_page而是一定要生成一份拷贝 ??
+     * 对于原地转移并晋升的情况, 需要复制一份页表对象出来, 新页表置换掉旧页表, 旧页表对象等待后续回收
+     * 这里的复制并不会立即复制页表的顶部地址, 但是reset函数会调整顶部地址, 所以并不会影响这个页表后续的内存分配
      */
     // Promotions happen through a new cloned page
     ZPage* const to_page = promotion ? from_page->clone_limited() : from_page;
@@ -867,17 +921,26 @@ private:
   }
 
   /**
-   * 常规转移失败时, 执行原地转移
+   * 首先在现有的目标页表上执行转移, 不成功则分配一个页表进行转移, 再不成功就执行原地转移
    */
   void relocate_object(oop obj) {
     const zaddress addr = to_zaddress(obj);
     assert(ZHeap::heap()->is_object_live(addr), "Should be live");
 
+    /**
+     * 首先在已有的目标页表上执行转移
+     */
     while (!try_relocate_object(addr)) {
       // Allocate a new target page, or if that fails, use the page being
       // relocated as the new target, which will cause it to be relocated
       // in-place.
       const ZPageAge to_age = _forwarding->to_age();
+
+      /**
+       * 分配一个新页表当作目标页表, 当旧的目标页表为空时将其释放
+       * 这一步的target(to_age)可以返回null
+       * 如果这一步分配不出页表, 则执行原地转移
+       */
       ZPage* to_page = _allocator->alloc_and_retire_target_page(_forwarding, target(to_age));
       set_target(to_age, to_page);
       if (to_page != nullptr) {
@@ -938,6 +1001,10 @@ public:
     return ZGeneration::old()->active_remset_is_current();
   }
 
+  /**
+   * 只有老年代到老年代的转移才需要执行这个函数
+   * 如果是原地转移, ?? TODO ??
+   */
   void clear_remset_before_reuse(ZPage* page, bool in_place) {
     if (_forwarding->from_age() != ZPageAge::old) {
       // No remset bits
@@ -974,6 +1041,11 @@ public:
     _forwarding->in_place_relocation_finish();
   }
 
+  /**
+   * 首先遍历页表上的对象, 对每个对象执行转移
+   * 然后修改被回收的字节数
+   * ?? TODO ??
+   */
   void do_forwarding(ZForwarding* forwarding) {
     _forwarding = forwarding;
 
@@ -991,6 +1063,10 @@ public:
       _forwarding->verify();
     }
 
+    /**
+     * 转移结束后, 未被转移走的对象就代表需要被回收
+     * 内存回收是以页表为单位进行的, 直接计入整个页表的字节数
+     */
     _generation->increase_freed(_forwarding->page()->size());
 
     // Deal with in-place relocation
@@ -1004,6 +1080,9 @@ public:
       _forwarding->relocated_remembered_fields_after_relocate();
     }
 
+    /**
+     * ?? TODO 和这一步配对的retain_page在哪里 ??
+     */
     // Release relocated page
     _forwarding->release_page();
 
@@ -1016,6 +1095,9 @@ public:
 
       page->log_msg(" (relocate page done in-place)");
 
+      /**
+       * 对于中型页表, 这一步的target_page不能是null
+       */
       // Different pages when promoting
       ZPage* const target_page = target(_forwarding->to_age());
       _allocator->share_target_page(target_page);
@@ -1089,6 +1171,10 @@ public:
     _queue->deactivate();
   }
 
+  /**
+   * 首先执行转移队列里的任务
+   * 然后执行转移集里的任务
+   */
   virtual void work() {
     ZRelocateWork<ZRelocateSmallAllocator> small(&_small_allocator, _generation);
     ZRelocateWork<ZRelocateMediumAllocator> medium(&_medium_allocator, _generation);

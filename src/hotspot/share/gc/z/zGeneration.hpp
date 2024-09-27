@@ -139,6 +139,10 @@ public:
   void reset_statistics();
   virtual bool should_record_stats() = 0;
   size_t freed() const;
+
+  /**
+   * 修改被回收的内存尺寸
+   */
   void increase_freed(size_t size);
   size_t promoted() const;
   void increase_promoted(size_t size);
@@ -268,9 +272,17 @@ public:
 
   // Support for promoting object to the old generation
   void flip_promote(ZPage* from_page, ZPage* to_page);
+
+  /**
+   * 置换页表并调整两个分代的尺寸
+   */
   void in_place_relocate_promote(ZPage* from_page, ZPage* to_page);
 
   void register_flip_promoted(const ZArray<ZPage*>& pages);
+
+  /**
+   * 将原地转移并晋升的旧页表注册到待回收列表中
+   */
   void register_in_place_relocate_promoted(ZPage* page);
 
   uint tenuring_threshold();

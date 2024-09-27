@@ -40,6 +40,9 @@ public:
   size_t size() const;
   bool is_full() const;
 
+  /**
+   * 内存分配在reset阶段执行, 此时仅修改状态值
+   */
   void* alloc(size_t size);
 };
 

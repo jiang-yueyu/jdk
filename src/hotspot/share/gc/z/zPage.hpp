@@ -89,7 +89,14 @@ private:
 public:
   ZPage(ZPageType type, const ZVirtualMemory& vmem, const ZPhysicalMemory& pmem);
 
+  /**
+   * 复制出页表的类型和地址段, 顶部地址仍然是初始值0
+   */
   ZPage* clone_limited() const;
+
+  /**
+   * 复制出页表的类型和地址段和顶部地址
+   */
   ZPage* clone_limited_promote_flipped() const;
 
   uint32_t object_max_count() const;
@@ -147,6 +154,10 @@ public:
 
   void reset(ZPageAge age, ZPageResetType type);
 
+  /**
+   * 仅将_livemap的年龄置零
+   * ?? TODO 目的何在 ??
+   */
   void finalize_reset_for_in_place_relocation();
 
   void reset_type_and_size(ZPageType type);
@@ -192,6 +203,9 @@ public:
   template <typename Function>
   void object_iterate(Function function);
 
+  /**
+   * 让指针值的值被current存储器记住
+   */
   void remember(volatile zpointer* p);
 
   // In-place relocation support
