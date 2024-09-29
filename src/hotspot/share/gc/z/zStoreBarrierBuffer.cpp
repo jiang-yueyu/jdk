@@ -70,6 +70,9 @@ bool ZStoreBarrierBuffer::is_empty() const {
   return _current == _buffer_size_bytes;
 }
 
+/**
+ * ?? TODO 什么是basepointer ??
+ */
 void ZStoreBarrierBuffer::install_base_pointers_inner() {
   assert(ZPointer::remap_bits(_last_installed_color) ==
          ZPointer::remap_bits(_last_processed_color),

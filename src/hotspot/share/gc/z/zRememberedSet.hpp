@@ -83,6 +83,8 @@ public:
 // ZRememberedSet包含current和previous两个存储器
 // 每个存储器都是一个连续内存块, 用1bit代表一个指针值的状态
 // 通过全局变量_current决定内存块代表current还是previous
+// 记录的是地址的指针/对象二级指针
+// ?? 记录它的目的是什么 ??
 //
 // The remembered set of a ZPage.
 //

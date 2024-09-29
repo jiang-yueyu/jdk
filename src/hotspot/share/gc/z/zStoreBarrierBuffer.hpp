@@ -86,6 +86,12 @@ public:
   void initialize();
   void on_new_phase();
 
+  /**
+   * 未启用ZBufferStoreBarriers时直接返回
+   * 当_last_installed_color的remap标记和ZPointerRemapped不符时执行install_base_pointers_inner
+   * 并将_last_installed_color更新为ZPointerStoreGoodMask
+   * ?? TODO 因为不影响主流程, 放到后面看 ??
+   */
   void install_base_pointers();
 
   void flush();

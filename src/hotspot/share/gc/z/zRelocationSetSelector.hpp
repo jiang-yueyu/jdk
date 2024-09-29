@@ -94,14 +94,30 @@ private:
    * 对象尺寸, 对于小型页表是常量, 中型页表是启动参数, 大型页表始终为0
    */
   const size_t                     _object_size_limit;
+
+  /**
+   * 内存碎片阈值, 来源于vm参数
+   */
   const double                     _fragmentation_limit;
+
+  /**
+   * page_size * (fragmentation_limit / 100)
+   */
   const size_t                     _page_fragmentation_limit;
+
+  /**
+   * select结束后, 代表被选中的页表
+   */
   ZArray<ZPage*>                   _live_pages;
 
   /**
    * 未被选中的页表, 只有young阶段做flip_age_pages才会被访问到
    */
   ZArray<ZPage*>                   _not_selected_pages;
+
+  /**
+   * 选中的页表的round_up_power_of_2(页表内存活对象的数量 * 2)累计值
+   */
   size_t                           _forwarding_entries;
   ZRelocationSetSelectorGroupStats _stats[ZPageAgeMax + 1];
 
@@ -117,9 +133,17 @@ private:
   bool is_selectable();
 
   /**
-   * 根据页表上活跃对象的尺寸, 对_live_pages做排序
+   * 根据页表上活跃对象的尺寸, 对_live_pages做排序, 越少的越靠前
    */
   void semi_sort();
+
+  /**
+   * 只有小/中型selector才会执行
+   * 首先根据页表上活跃对象的尺寸, 对_live_pages做排序
+   * 然后遍历_live_pages, 根据内存碎片阈值, 选取若干个连续的页表
+   * 将被选取的页表保留在live_pages, 未选中的年轻代页表加入到_not_selected_pages
+   * 更新统计值
+   */
   void select_inner();
 
 public:
@@ -133,7 +157,12 @@ public:
   void register_empty_page(ZPage* page);
 
   /**
-   * 对于大型页表, 始终把全部页表插入到_not_selected_pages当中, 否则执行select_inner
+   * 对于大型页表, 始终把全部页表插入到_not_selected_pages当中
+   * 否则:
+   * 首先根据页表上活跃对象的尺寸, 对_live_pages做排序
+   * 然后遍历_live_pages, 根据内存碎片阈值, 选取若干个连续的页表
+   * 将被选取的页表保留在live_pages, 未选中的年轻代页表加入到_not_selected_pages
+   * 更新统计值
    */
   void select();
 
@@ -177,6 +206,11 @@ public:
   const ZArray<ZPage*>* empty_pages() const;
   void clear_empty_pages();
 
+  /**
+   * 对小中大三个selector分别执行select函数
+   * 大型页表始终不会被选取
+   * 中小型页表会根据启动参数的内存碎片阈值, 选取若干个页表
+   */
   void select();
 
   const ZArray<ZPage*>* selected_small() const;
@@ -184,6 +218,10 @@ public:
 
   const ZArray<ZPage*>* not_selected_small() const;
   const ZArray<ZPage*>* not_selected_medium() const;
+
+  /**
+   * 大型页表一定不会被选取, 在这里返回所有
+   */
   const ZArray<ZPage*>* not_selected_large() const;
   size_t forwarding_entries() const;
 

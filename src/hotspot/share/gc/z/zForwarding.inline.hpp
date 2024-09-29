@@ -325,6 +325,11 @@ inline bool ZForwarding::relocated_remembered_fields_is_concurrently_scanned() c
   return Atomic::load(&_relocated_remembered_fields_state) == ZPublishState::reject;
 }
 
+/**
+ * 仅在YGC的标记阶段被调用
+ * 1. 如果_relocated_remembered_fields_state状态是published, 遍历二级指针以后清空_relocated_remembered_fields_array
+ * 2. 如果_relocated_remembered_fields_publish_young_seqnum等于最新的年轻代年龄, 将state设置为reject, 否则设置为accept
+ */
 template <typename Function>
 inline void ZForwarding::relocated_remembered_fields_apply_to_published(Function function) {
   // Invariant: Page is not being retained

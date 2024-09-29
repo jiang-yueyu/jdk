@@ -125,8 +125,18 @@ public:
    */
   zaddress forward_object(ZForwarding* forwarding, zaddress_unsafe from_addr);
 
+  /**
+   * 执行转移队列和转移集里的任务
+   */
   void relocate(ZRelocationSet* relocation_set);
 
+  /**
+   * 对入参的页表执行年龄晋升的任务
+   * 如果需要执行分代晋升, 会遍历页表内的对象的每个对象字段, 更新指针颜色到ZPointerStoreGoodMask
+   * 执行年龄晋升. 如果需要执行分代晋升, 则是对页表生成一份拷贝, 在拷贝上执行年龄晋升
+   * 如果需要执行分代晋升, 会置换page_table的页表对象, 置换成页表拷贝, 并更新相关的计数和统计值
+   * 最后遍历分代晋升的页表, 追加到转移集的已转移页表里面. ?? TODO 这一步涉及到remembered_set ??
+   */
   void flip_age_pages(const ZArray<ZPage*>* pages);
 
   void synchronize();

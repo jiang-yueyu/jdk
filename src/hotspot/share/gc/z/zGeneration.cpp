@@ -179,8 +179,14 @@ void ZGeneration::flip_age_pages(const ZRelocationSetSelector* selector) {
   }
 }
 
+/**
+ * 根据当前的分代, 决定使用哪个vm参数值
+ */
 static double fragmentation_limit(ZGenerationId generation) {
   if (generation == ZGenerationId::old) {
+    /**
+     * 内存碎片阈值(%), 默认25
+     */
     return ZFragmentationLimit;
   } else {
     return ZYoungCompactionLimit;
@@ -571,6 +577,7 @@ void ZGenerationYoung::collect(ZYoungType type, ConcurrentGCTimer* timer) {
   // on the remaining entries in the relocation set.
 
   // Phase 8: Concurrent Relocate
+  // 执行转移队列和转移集的任务
   concurrent_relocate();
 }
 

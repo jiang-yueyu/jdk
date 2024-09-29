@@ -113,16 +113,16 @@ void ZRelocationSetSelectorGroup::select_inner() {
   // a candidate relocation set and calculate the maximum space requirement for
   // their live objects.
   const int npages = _live_pages.length();
-  int selected_from = 0;
-  int selected_to = 0;
-  size_t npages_selected[ZPageAgeMax + 1] = { 0 };
-  size_t selected_live_bytes[ZPageAgeMax + 1] = { 0 };
-  size_t selected_forwarding_entries = 0;
+  int selected_from = 0; // 选中的页表下标
+  int selected_to = 0;   // 到选中的页表下标为止, 容纳存活对象所需的页表数量
+  size_t npages_selected[ZPageAgeMax + 1] = { 0 };     // 统计值
+  size_t selected_live_bytes[ZPageAgeMax + 1] = { 0 }; // 统计值
+  size_t selected_forwarding_entries = 0; // 到选中的页表下标为止, 累计的round_up_power_of_2(页表内存活对象的数量 * 2)
 
   size_t from_live_bytes = 0;
   size_t from_forwarding_entries = 0;
 
-  semi_sort();
+  semi_sort(); // 这一步结束以后, 越靠前的页表存活字节数越少(剩余空间越大)
 
   for (int from = 1; from <= npages; from++) {
     // Add page to the candidate relocation set
@@ -131,6 +131,7 @@ void ZRelocationSetSelectorGroup::select_inner() {
     from_live_bytes += page_live_bytes;
     from_forwarding_entries += ZForwarding::nentries(page);
 
+    // 截至当前步骤, 容纳存活字节数所需的页表数量
     // Calculate the maximum number of pages needed by the candidate relocation set.
     // By subtracting the object size limit from the pages size we get the maximum
     // number of pages that the relocation set is guaranteed to fit in, regardless
@@ -141,8 +142,11 @@ void ZRelocationSetSelectorGroup::select_inner() {
     // currently selected final relocation set. If this number is larger than the
     // acceptable fragmentation limit, then the current candidate relocation set
     // becomes our new final relocation set.
-    const int diff_from = from - selected_from;
-    const int diff_to = to - selected_to;
+    const int diff_from = from - selected_from; // 页表下标的差值
+    const int diff_to = to - selected_to;       // 所需页表数的差值
+
+    // 因为从前往后遍历, page_live_bytes是越来越大的, 相比于下标的增速会快很多, percent_of(diff_to, diff_from)必定是越来越大
+    // 所以diff_reclaimable会越来越小, 直到小于内存碎片阈值
     const double diff_reclaimable = 100 - percent_of(diff_to, diff_from);
     if (diff_reclaimable > _fragmentation_limit) {
       selected_from = from;

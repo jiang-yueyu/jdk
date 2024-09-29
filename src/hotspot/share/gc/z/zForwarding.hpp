@@ -71,7 +71,91 @@ private:
   volatile bool          _done;
 
   // Relocated remembered set fields support
+  // none:      仅在这个阶段会收集二级指针
+  // published: 这个阶段代表收集已经结束, 仅在该阶段会执行回调函数, 只能从none阶段流转
+  // reject:    A previous YC has already handled the field
+  // accept:    A previous YC has determined that there's no concurrency between
+  //            OC relocation and YC remembered fields scanning - not possible
+  //            since the page has been retained (still being relocated) and
+  //            we are in the process of scanning fields
+  // ?? TODO ??
   volatile ZPublishState _relocated_remembered_fields_state;
+
+  /**
+   * 这个数组在old-gc处于转移阶段, 且young-gc同时处于标记阶段时被使用
+   * 当old-gc正在转移对象时, 旧的remembered_set会发生转移, 而young-gc不会等待这一步完成,
+   * 这个数组被用于转移带有remembered_set标记的对象
+   * none - 初始状态, old和young都没有插入意向
+   * published - old-gc已经完成所有的转移任务
+   * reject - ?? TODO ??
+   * accept - 当young-gc开始时, 转发表上的转发任务已经完成
+   */
+  //
+  // ?? TODO 这个是深坑, 后面慢慢看 ??
+  // This requires some synchronization between the OC and YC, and this is
+  // mainly done via the _relocated_remembered_fields_state in each ZForwarding.
+  // The values corresponds to:
+  //
+  // none:      Starting state - neither OC nor YC has stated their intentions
+  // published: The OC has completed relocating all objects, and published an array
+  //            of all to-space fields that should have a remembered set entry.
+  // reject:    The OC relocation of the page happened concurrently with the YC
+  //            remset scanning. Two situations:
+  //            a) The page had not been released yet: The YC eagerly relocated and
+  //            scanned the to-space objects with remset entries.
+  //            b) The page had been released: The YC accepts the array published in
+  //            (published).
+  // accept:    The YC found that the forwarding/page had already been relocated when
+  //            the YC started.
+  //
+  // Central to this logic is the ZRemembered::scan_forwarding function, where
+  // the YC tries to "retain" the forwarding/page. If it succeeds it means that
+  // the OC has not finished (or maybe not even started) the relocation of all objects.
+  //
+  // When the YC manages to retaining the page it will bring the state from:
+  //  none      -> reject - Started collecting remembered set info
+  //  published -> reject - Rejected the OC's remembered set info
+  //  reject    -> reject - An earlier YC had already handled the remembered set info
+  //  accept    ->        - Invalid state - will not happen
+  //
+  // When the YC fails to retain the page the state transitions are:
+  // none      -> x - The page was relocated before the YC started
+  // published -> x - The OC completed relocation before YC visited this forwarding.
+  //                  The YC will use the remembered set info collected by the OC.
+  // reject    -> x - A previous YC has already handled the remembered set info
+  // accept    -> x - See above
+  //
+  // x is:
+  //  reject        - if the relocation finished while the current YC was running
+  //  accept        - if the relocation finished before the current YC started
+  //
+  // Note the subtlety that even though the relocation could released the page
+  // and made it non-retainable, the relocation code might not have gotten to
+  // the point where the page is removed from the page table. It could also be
+  // the case that the relocated page became in-place relocated, and we therefore
+  // shouldn't be scanning it this YC.
+  //
+  // The (reject) state is the "dangerous" state, where both OC and YC work on
+  // the same forwarding/page somewhat concurrently. While (accept) denotes that
+  // that the entire relocation of a page (including freeing/reusing it) was
+  // completed before the current YC started.
+  //
+  // After all remset entries of relocated objects have been scanned, the code
+  // proceeds to visit all pages in the page table, to scan all pages not part
+  // of the OC relocation set. Pages with virtual addresses that doesn't match
+  // any of the once in the OC relocation set will be visited. Pages with
+  // virtual address that *do* have a corresponding forwarding entry has two
+  // cases:
+  //
+  // a) The forwarding entry is marked with (reject). This means that the
+  //    corresponding page is guaranteed to be one that has been relocated by the
+  //    current OC during the active YC. Any remset entry is guaranteed to have
+  //    already been scanned by the scan_forwarding code.
+  //
+  // b) The forwarding entry is marked with (accept). This means that the page was
+  //    *not* created by the OC relocation during this YC, which means that the
+  //    page must be scanned.
+  //
   PointerArray           _relocated_remembered_fields_array;
   uint32_t               _relocated_remembered_fields_publish_young_seqnum;
 
@@ -101,6 +185,9 @@ private:
   ZForwarding(ZPage* page, ZPageAge to_age, size_t nentries);
 
 public:
+  /**
+   * round_up_power_of_2(页表内存活对象的数量 * 2)
+   */
   static uint32_t nentries(const ZPage* page);
   static ZForwarding* alloc(ZForwardingAllocator* allocator, ZPage* page, ZPageAge to_age);
 
@@ -197,13 +284,45 @@ public:
   zaddress insert(zaddress from_addr, zaddress to_addr, ZForwardingCursor* cursor);
 
   // Relocated remembered set fields support
+
+  /**
+   * 如果_relocated_remembered_fields_state是none, 将指针加入到_relocated_remembered_fields_array当作
+   * 否则_relocated_remembered_fields_state必定是reject
+   */
   void relocated_remembered_fields_register(volatile zpointer* p);
+
+  /**
+   * 仅在老年代页表的转移阶段被调用
+   * 更新_relocated_remembered_fields_publish_young_seqnum为当前年轻代年龄
+   * 如果处于YGC的标记阶段, 调用relocated_remembered_fields_publish流转状态为publish
+   */
   void relocated_remembered_fields_after_relocate();
+
+  /**
+   * 仅在YGC的标记阶段被调用
+   * 调用前的状态必然为none reject之一, 调用后状态为published
+   * none到published的流转无任何操作, reject到published的状态会清空_relocated_remembered_fields_array
+   */
   void relocated_remembered_fields_publish();
+
+  /**
+   * 仅在YGC的标记阶段被调用
+   * 调用前的状态必然为none published reject之一, 调用后状态为reject
+   * none到reject的流转无任何操作, published到reject的流转会清空_relocated_remembered_fields_array
+   */
   void relocated_remembered_fields_notify_concurrent_scan_of();
+
+  /**
+   * @return _relocated_remembered_fields_state == reject
+   */
   bool relocated_remembered_fields_is_concurrently_scanned() const;
+
   template <typename Function>
   void relocated_remembered_fields_apply_to_published(Function function);
+
+  /**
+   * 仅用于debug模式下的校验, 正式版本是不会编译进去的
+   */
   bool relocated_remembered_fields_published_contains(volatile zpointer* p);
 
   void verify() const;

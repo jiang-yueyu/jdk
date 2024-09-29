@@ -143,6 +143,10 @@ public:
   void mark_young_roots();
   void mark_old_roots();
   void mark_follow();
+
+  /**
+   * 如果标记任务执行完毕, 更新统计值并返回true
+   */
   bool end();
   void free();
 

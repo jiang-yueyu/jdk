@@ -193,6 +193,9 @@ const uintptr_t   ZPointerStoreMetadataMask = ZPointerMarkMetadataMask | ZPointe
 const uintptr_t   ZPointerAllMetadataMask   = ZPointerStoreMetadataMask;
 
 // The current expected bit
+/**
+ * ZPointerRemappedOldMask & ZPointerRemappedYoungMask
+ */
 extern uintptr_t  ZPointerRemapped;
 extern uintptr_t  ZPointerMarkedOld;
 extern uintptr_t  ZPointerMarkedYoung;
@@ -205,12 +208,22 @@ extern uintptr_t  ZPointerRemappedYoungMask;
 extern uintptr_t  ZPointerRemappedOldMask;
 
 // Good/bad masks
+
+/**
+ * ZPointerRemapped & ZPointerRemappedMask
+ */
 extern uintptr_t  ZPointerLoadGoodMask;
 extern uintptr_t  ZPointerLoadBadMask;
 
+/**
+ * ZPointerLoadGoodMask | ZPointerMarkedYoung | ZPointerMarkedOld
+ */
 extern uintptr_t  ZPointerMarkGoodMask;
 extern uintptr_t  ZPointerMarkBadMask;
 
+/**
+ * ZPointerMarkGoodMask | ZPointerRemembered
+ */
 extern uintptr_t  ZPointerStoreGoodMask;
 extern uintptr_t  ZPointerStoreBadMask;
 
@@ -233,6 +246,7 @@ enum class zoffset         : uintptr_t {};
 enum class zoffset_end     : uintptr_t {};
 
 // Colored oop
+// 染色后的地址
 enum class zpointer        : uintptr_t { null = 0 };
 
 // Uncolored oop - safe to dereference

@@ -197,6 +197,10 @@ public:
   bool mark_object(zaddress addr, bool finalizable, bool& inc_live);
 
   void inc_live(uint32_t objects, size_t bytes);
+
+  /**
+   * 直接返回_livemap的_live_objects字段
+   */
   uint32_t live_objects() const;
   size_t live_bytes() const;
 
@@ -204,7 +208,8 @@ public:
   void object_iterate(Function function);
 
   /**
-   * 让指针值的值被current存储器记住
+   * 让二级指针被current存储器记住
+   * ?? 存进去的似乎都是字段的地址 ??
    */
   void remember(volatile zpointer* p);
 
@@ -219,7 +224,15 @@ public:
   BitMap::Iterator remset_iterator_limited_current(uintptr_t l_offset, size_t size);
   BitMap::Iterator remset_iterator_limited_previous(uintptr_t l_offset, size_t size);
 
+  /**
+   * 对于大型页表直接返回页表的起始地址, 因为只有一个对象
+   * 否则 ?? TODO ??
+   */
   zaddress_unsafe find_base_unsafe(volatile zpointer* p);
+
+  /**
+   * 调用find_base_unsafe
+   */
   zaddress_unsafe find_base(volatile zpointer* p);
 
   template <typename Function>

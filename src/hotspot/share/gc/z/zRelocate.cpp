@@ -666,6 +666,10 @@ private:
     return to_addr;
   }
 
+  /**
+   * 遍历对象字段
+   * 如果处于YGC的标记阶段, 将字段偏移量存入到转发表中, 否则立即让偏移量被remembered_set记住
+   */
   void update_remset_old_to_old(zaddress from_addr, zaddress to_addr) const {
     // Old-to-old relocation - move existing remset bits
 
@@ -720,6 +724,10 @@ private:
     // need to clear the old bits before the new bits are inserted.
     const bool iterate_current_remset = active_remset_is_current && !in_place;
 
+    /**
+     * 从current或previous存储器中拿到对象字段的地址, 让它被相应的存储器记住
+     * 因为向remembered_set存入的是二级指针, 实际上就是对象地址+字段偏移量, 所以拿到的值是一致的
+     */
     BitMap::Iterator iter = iterate_current_remset
         ? from_page->remset_iterator_limited_current(from_local_offset, size)
         : from_page->remset_iterator_limited_previous(from_local_offset, size);
@@ -820,6 +828,7 @@ private:
    * 如果目标年龄不是老年代, 直接返回
    * 如果是老年代到老年代的转移 ?? TODO ??
    * 否则 ?? TODO ??
+   * ?? TODO remset水很深, 后面慢慢看 ??
    */
   void update_remset_for_fields(zaddress from_addr, zaddress to_addr) const {
     if (_forwarding->to_age() != ZPageAge::old) {
@@ -844,6 +853,7 @@ private:
    * 将对象复制到目标地址上, 然后把目标地址插入到转发表中
    * 插入失败代表已经被其他线程转移走了, 回滚内存分配
    * 新地址值为null代表转移失败, 否则 ?? TODO ??
+   * ?? TODO remset水很深, 后面慢慢看 ??
    */
   bool try_relocate_object(zaddress from_addr) {
     const zaddress to_addr = try_relocate_object_inner(from_addr);
@@ -1119,6 +1129,9 @@ public:
   }
 };
 
+/**
+ * 未启用ZBufferStoreBarriers时不执行任何操作
+ */
 class ZRelocateStoreBufferInstallBasePointersThreadClosure : public ThreadClosure {
 public:
   virtual void do_thread(Thread* thread) {
@@ -1128,10 +1141,13 @@ public:
   }
 };
 
-// Installs the object base pointers (object starts), for the fields written
-// in the store buffer. The code that searches for the object start uses that
-// liveness information stored in the pages. That information is lost when the
-// pages have been relocated and then destroyed.
+/**
+ * 未启用ZBufferStoreBarriers时不执行任何操作
+ * Installs the object base pointers (object starts), for the fields written
+ * in the store buffer. The code that searches for the object start uses that
+ * liveness information stored in the pages. That information is lost when the
+ * pages have been relocated and then destroyed.
+ */
 class ZRelocateStoreBufferInstallBasePointersTask : public ZTask {
 private:
   ZJavaThreadsIterator _threads_iter;
@@ -1301,6 +1317,7 @@ public:
 
 void ZRelocate::relocate(ZRelocationSet* relocation_set) {
   {
+    // 未启用ZBufferStoreBarriers时不执行任何操作
     // Install the store buffer's base pointers before the
     // relocate task destroys the liveness information in
     // the relocated pages.
@@ -1313,6 +1330,9 @@ void ZRelocate::relocate(ZRelocationSet* relocation_set) {
     workers()->run(&relocate_task);
   }
 
+  /**
+   * ?? TODO 深坑, 放到后面看 ??
+   */
   if (relocation_set->generation()->is_young()) {
     ZRelocateAddRemsetForFlipPromoted task(relocation_set->flip_promoted_pages());
     workers()->run(&task);
@@ -1332,6 +1352,12 @@ ZPageAge ZRelocate::compute_to_age(ZPageAge from_age) {
   return static_cast<ZPageAge>(age + 1);
 }
 
+/**
+ * 如果需要执行分代晋升, 会遍历页表内的对象的每个对象字段, 更新指针颜色到ZPointerStoreGoodMask
+ * 执行年龄晋升. 如果需要执行分代晋升, 则是对页表生成一份拷贝, 在拷贝上执行年龄晋升
+ * 如果需要执行分代晋升, 会置换page_table的页表对象, 置换成页表拷贝, 并更新相关的计数和统计值
+ * 最后遍历分代晋升的页表, 追加到转移集的已转移页表里面. ?? TODO 这一步涉及到remembered_set ??
+ */
 class ZFlipAgePagesTask : public ZTask {
 private:
   ZArrayParallelIterator<ZPage*> _iter;

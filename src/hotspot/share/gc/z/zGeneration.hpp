@@ -95,13 +95,34 @@ protected:
   void free_empty_pages(ZRelocationSetSelector* selector, int bulk);
 
   /**
-   * 对未选中的年轻代页表执行晋升
+   * 如果是YGC, 对未选中的年轻代页表执行晋升
+   * 如果需要执行分代晋升, 会遍历页表内的对象的每个对象字段, 更新指针颜色到ZPointerStoreGoodMask
+   * 执行年龄晋升. 如果需要执行分代晋升, 则是对页表生成一份拷贝, 在拷贝上执行年龄晋升
+   * 如果需要执行分代晋升, 会置换page_table的页表对象, 置换成页表拷贝, 并更新相关的计数和统计值
+   * 最后遍历分代晋升的页表, 追加到转移集的已转移页表里面. ?? TODO 这一步涉及到remembered_set ??
    */
   void flip_age_pages(const ZRelocationSetSelector* selector);
-  void flip_age_pages(const ZArray<ZPage*>* pages);
 
   void mark_free();
 
+  /**
+   * 1. 首先遍历当前分代的页表, 在能够转移的页表中, 选取被标记过的页表注册到selector当中, 否则视作空页表, 然后对空页表做一次清理
+   * 2. 执行页表选取:
+   * - 对小中大三个selector分别执行select函数
+   * - 大型页表始终不会被选取, 中小型页表会根据启动参数的内存碎片阈值, 选取若干个页表
+   * 3. 计算一次分代提前晋升所需的年龄阈值
+   * 4. 将页表选取结果装载到转移集
+   * - 根据选中的页表构造转发表
+   * - 如果转移过程伴随分代晋升, 会遍历页表对象的对象字段, 将指针颜色更新为ZPointerStoreGoodMask
+   * - 然后将构造出来的转发表插入到转移集
+   * 5. 如果处于YGC, 则对未选中的年轻代页表执行晋升
+   * - 如果需要执行分代晋升, 会遍历页表内的对象的每个对象字段, 更新指针颜色到ZPointerStoreGoodMask
+   * - 执行年龄晋升. 如果需要执行分代晋升, 则是对页表生成一份拷贝, 在拷贝上执行年龄晋升
+   * - 如果需要执行分代晋升, 会置换page_table的页表对象, 置换成页表拷贝, 并更新相关的计数和统计值
+   * - 最后遍历分代晋升的页表, 追加到转移集的已转移页表里面
+   * 6. 将转移集里的转发表插入到转发表收集器
+   * 7. 更新统计值
+   */
   void select_relocation_set(ZGenerationId generation, bool promote_all);
 
   /**
@@ -231,12 +252,20 @@ private:
   void mark_start();
   void mark_roots();
   void mark_follow();
+
+  /**
+   * 如果标记任务已经执行完毕, 状态流转到MarkComplete
+   */
   bool mark_end();
   void relocate_start();
   void relocate();
 
   void pause_mark_start();
   void concurrent_mark();
+
+  /**
+   * 标记任务执行完毕后将状态流转到MarkComplete
+   */
   bool pause_mark_end();
 
   /**
@@ -254,6 +283,25 @@ private:
    * 2. 重置掉所有的转发表, 然后销毁掉相关的页表对象(仅销毁对象并清空容器, 但不回收页表内存)
    */
   void concurrent_reset_relocation_set();
+
+  /**
+   * 1. 首先遍历当前分代的页表, 在能够转移的页表中, 选取被标记过的页表注册到selector当中, 否则视作空页表, 然后对空页表做一次清理
+   * 2. 执行页表选取:
+   * - 对小中大三个selector分别执行select函数
+   * - 大型页表始终不会被选取, 中小型页表会根据启动参数的内存碎片阈值, 选取若干个页表
+   * 3. 计算一次分代提前晋升所需的年龄阈值
+   * 4. 将页表选取结果装载到转移集
+   * - 根据选中的页表构造转发表
+   * - 如果转移过程伴随分代晋升, 会遍历页表对象的对象字段, 将指针颜色更新为ZPointerStoreGoodMask
+   * - 然后将构造出来的转发表插入到转移集
+   * 5. 如果处于YGC, 则对未选中的年轻代页表执行晋升
+   * - 如果需要执行分代晋升, 会遍历页表内的对象的每个对象字段, 更新指针颜色到ZPointerStoreGoodMask
+   * - 执行年龄晋升. 如果需要执行分代晋升, 则是对页表生成一份拷贝, 在拷贝上执行年龄晋升
+   * - 如果需要执行分代晋升, 会置换page_table的页表对象, 置换成页表拷贝, 并更新相关的计数和统计值
+   * - 最后遍历分代晋升的页表, 追加到转移集的已转移页表里面
+   * 6. 将转移集里的转发表插入到转发表收集器
+   * 7. 更新统计值
+   */
   void concurrent_select_relocation_set();
   void pause_relocate_start();
   void concurrent_relocate();
@@ -271,6 +319,9 @@ public:
   bool should_record_stats();
 
   // Support for promoting object to the old generation
+  /**
+   * 首先在page_table里置换页表对象, 然后更新相应的计数和统计值
+   */
   void flip_promote(ZPage* from_page, ZPage* to_page);
 
   /**
@@ -278,6 +329,9 @@ public:
    */
   void in_place_relocate_promote(ZPage* from_page, ZPage* to_page);
 
+  /**
+   * 执行转移集的register_flip_promoted方法. ?? TODO 目的是什么 ??
+   */
   void register_flip_promoted(const ZArray<ZPage*>& pages);
 
   /**
@@ -285,7 +339,18 @@ public:
    */
   void register_in_place_relocate_promoted(ZPage* page);
 
+  /**
+   * 提前晋升的年龄阈值
+   * 在并发转移阶段, 判断分代晋升时使用
+   */
   uint tenuring_threshold();
+
+  /**
+   * 设置提前执行分代晋升的年龄阈值
+   * 如果promote_all==true, 设置为0, 代表立即晋升
+   * 如果设置过ZTenuringThreshold, 设置为该值
+   * 否则根据统计结果计算
+   */
   void select_tenuring_threshold(ZRelocationSetSelectorStats stats, bool promote_all);
   uint compute_tenuring_threshold(ZRelocationSetSelectorStats stats);
 
@@ -338,6 +403,25 @@ private:
   void concurrent_process_non_strong_references();
   void concurrent_reset_relocation_set();
   void pause_verify();
+
+  /**
+   * 1. 首先遍历当前分代的页表, 在能够转移的页表中, 选取被标记过的页表注册到selector当中, 否则视作空页表, 然后对空页表做一次清理
+   * 2. 执行页表选取:
+   * - 对小中大三个selector分别执行select函数
+   * - 大型页表始终不会被选取, 中小型页表会根据启动参数的内存碎片阈值, 选取若干个页表
+   * 3. 计算一次分代提前晋升所需的年龄阈值
+   * 4. 将页表选取结果装载到转移集
+   * - 根据选中的页表构造转发表
+   * - 如果转移过程伴随分代晋升, 会遍历页表对象的对象字段, 将指针颜色更新为ZPointerStoreGoodMask
+   * - 然后将构造出来的转发表插入到转移集
+   * 5. 如果处于YGC, 则对未选中的年轻代页表执行晋升
+   * - 如果需要执行分代晋升, 会遍历页表内的对象的每个对象字段, 更新指针颜色到ZPointerStoreGoodMask
+   * - 执行年龄晋升. 如果需要执行分代晋升, 则是对页表生成一份拷贝, 在拷贝上执行年龄晋升
+   * - 如果需要执行分代晋升, 会置换page_table的页表对象, 置换成页表拷贝, 并更新相关的计数和统计值
+   * - 最后遍历分代晋升的页表, 追加到转移集的已转移页表里面
+   * 6. 将转移集里的转发表插入到转发表收集器
+   * 7. 更新统计值
+   */
   void concurrent_select_relocation_set();
   void pause_relocate_start();
   void concurrent_relocate();

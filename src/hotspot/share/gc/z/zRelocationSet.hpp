@@ -57,7 +57,9 @@ public:
   ZRelocationSet(ZGeneration* generation);
 
   /**
-   * 将选中的页表插入转移集, 并对选中的页表执行必要的晋升动作
+   * 根据选中的页表构造转发表
+   * 如果转移过程伴随分代晋升, 会遍历页表对象的对象字段, 将指针颜色更新为ZPointerStoreGoodMask
+   * 然后将构造出来的转发表插入到转移集
    */
   void install(const ZRelocationSetSelector* selector);
 

@@ -37,6 +37,10 @@
 #include "runtime/atomic.hpp"
 #include "utilities/debug.hpp"
 
+/**
+ * 根据页表构造转发表
+ * 如果转移过程伴随分代晋升, 会遍历页表对象的对象字段, 将指针颜色更新为ZPointerStoreGoodMask
+ */
 class ZRelocationSetInstallTask : public ZTask {
 private:
   ZForwardingAllocator* const    _allocator;
@@ -47,6 +51,10 @@ private:
   ZArrayParallelIterator<ZPage*> _small_iter;
   ZArrayParallelIterator<ZPage*> _medium_iter;
 
+  /**
+   * 在指定index上插入一个转发表
+   * 如果转移过程伴随分代晋升, 会遍历页表对象的对象字段, 将指针颜色更新为ZPointerStoreGoodMask
+   */
   void install(ZForwarding* forwarding, size_t index) {
     assert(index < _nforwardings, "Invalid index");
 
@@ -105,6 +113,9 @@ public:
     assert(_allocator->is_full(), "Should be full");
   }
 
+  /**
+   * 遍历选中的页表, 对每个页表生成一份转发表, 然后执行install
+   */
   virtual void work() {
     // Join the STS to block out VMThreads while running promote_barrier_on_young_oop_field
     SuspendibleThreadSetJoiner sts_joiner;
