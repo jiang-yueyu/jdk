@@ -247,8 +247,26 @@ private:
   ZYoungTracer _jfr_tracer;
 
   void flip_mark_start();
+
+  /**
+   * ZPointerRemappedYoungMask相位反转, 然后更新指针颜色
+   */
   void flip_relocate_start();
 
+  /**
+   * 1. 更新指针颜色
+   * 2. 情况各个内存分配器的共享页表
+   * 3. 更新统计值
+   * 4. 更新分代年龄
+   * 5. 状态流转到Mark
+   * 6. 启动标记任务
+   * - 将计数器清零
+   * - 设置工作线程数
+   * - 根据工作线程数计算条纹数nstripes
+   * - 更新统计值
+   * 7. 切换remembered_set存储器的current和previous
+   * 8. 更新统计值
+   */
   void mark_start();
   void mark_roots();
   void mark_follow();
@@ -257,7 +275,39 @@ private:
    * 如果标记任务已经执行完毕, 状态流转到MarkComplete
    */
   bool mark_end();
+
+  /**
+   * ZPointerRemappedYoungMask相位反转, 然后更新指针颜色
+   * 将状态流转到Relocate
+   * 更新统计值
+   * 启用转移集的任务队列
+   */
   void relocate_start();
+
+  /**
+   * 首先执行转移队列里的转发表
+   * 然后尝试对转移集里的转发表加原子锁, 加锁成功后执行转发任务
+   * 转移的执行过程如下
+   * 1. 遍历页表上的对象, 对每个对象执行转移
+   * - 首先尝试在目标页表上分配对象并转移
+   * - 如果失败则分配一个页表当作目标页表
+   * - 再失败时执行原地转移, 并将当前页表当作目标页表
+   * 2. 修改被回收的字节数
+   * 3. 对于原地转移的情况:
+   * - 如果不能晋升到老年代, 将页表的livemap的年龄置零
+   * - 释放掉执行任务的线程标记
+   * 4. 如果转移的起始页表已经是老年代 ?? TODO 涉及到remembered_set, 深坑 ??
+   * 5. 对于原地转移的情况:
+   * - 等待转发表的引用计数归零
+   * - 如果是老年代到老年代的转移 ?? TODO 涉及到remembered_set, 深坑 ??
+   * - 获取到转移目标年龄的转移目标页表, 将它作为分配器的共享页表
+   *    否则:
+   * - 等待转发表的引用计数归零
+   * - ?? TODO 涉及到remembered_set, 深坑 ??
+   * - 释放页表
+   * 6. 设置转发表上的完成标记
+   * 7. ?? TODO 深坑, 放到后面看 ??
+   */
   void relocate();
 
   void pause_mark_start();
@@ -393,6 +443,31 @@ private:
   bool mark_end();
   void process_non_strong_references();
   void relocate_start();
+
+  /**
+   * 首先执行转移队列里的转发表
+   * 然后尝试对转移集里的转发表加原子锁, 加锁成功后执行转发任务
+   * 转移的执行过程如下
+   * 1. 遍历页表上的对象, 对每个对象执行转移
+   * - 首先尝试在目标页表上分配对象并转移
+   * - 如果失败则分配一个页表当作目标页表
+   * - 再失败时执行原地转移, 并将当前页表当作目标页表
+   * 2. 修改被回收的字节数
+   * 3. 对于原地转移的情况:
+   * - 如果不能晋升到老年代, 将页表的livemap的年龄置零
+   * - 释放掉执行任务的线程标记
+   * 4. 如果转移的起始页表已经是老年代 ?? TODO 涉及到remembered_set, 深坑 ??
+   * 5. 对于原地转移的情况:
+   * - 等待转发表的引用计数归零
+   * - 如果是老年代到老年代的转移 ?? TODO 涉及到remembered_set, 深坑 ??
+   * - 获取到转移目标年龄的转移目标页表, 将它作为分配器的共享页表
+   *    否则:
+   * - 等待转发表的引用计数归零
+   * - ?? TODO 涉及到remembered_set, 深坑 ??
+   * - 释放页表
+   * 6. 设置转发表上的完成标记
+   * 7. ?? TODO 深坑, 放到后面看 ??
+   */
   void relocate();
   void remap_young_roots();
 

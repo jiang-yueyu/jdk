@@ -99,6 +99,9 @@ public:
   void apply(CLDClosure* cl);
 };
 
+/**
+ * 遍历ClassLoaderDataGraph
+ */
 class ZCLDsIteratorAll {
 private:
   const ZGenerationIdOptional _generation;

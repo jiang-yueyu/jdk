@@ -161,6 +161,10 @@ class FailedSpeculation;
 class JVMCINMethodData;
 #endif
 
+/**
+ * 方法经过JIT编译后的代码块
+ * 有一个地址段存储对象引用
+ */
 class nmethod : public CodeBlob {
   friend class VMStructs;
   friend class JVMCIVMStructs;

@@ -651,10 +651,31 @@ void ZGenerationYoung::flip_mark_start() {
 
 void ZGenerationYoung::flip_relocate_start() {
   ZGlobalsPointers::flip_young_relocate_start();
+
+  /**
+   * 似乎和JIT有关, 只有x86上有操作, 不管
+   */
   ZBarrierSet::assembler()->patch_barriers();
   ZVerify::on_color_flip();
 }
 
+/**
+ * 如果type == minor || type == major_full_preclean, 执行年轻代的mark_start:
+ * 1. 更新指针颜色
+ * 2. 情况各个内存分配器的共享页表
+ * 3. 更新统计值
+ * 4. 更新分代年龄
+ * 5. 状态流转到Mark
+ * 6. 启动标记任务
+ * - 将计数器清零
+ * - 设置工作线程数
+ * - 根据工作线程数计算条纹数nstripes
+ * - 更新统计值
+ * 7. 切换remembered_set存储器的current和previous
+ * 8. 更新统计值
+ * 否则:
+ * 执行年轻代+老年代的mark_start
+ */
 void ZGenerationYoung::pause_mark_start() {
   if (type() == ZYoungType::major_full_roots ||
       type() == ZYoungType::major_partial_roots) {

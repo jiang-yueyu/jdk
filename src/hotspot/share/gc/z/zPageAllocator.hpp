@@ -221,7 +221,7 @@ private:
 
   /**
    * minor-gc结束, 但是仍然有等待内存的页表分配任务时调用到该函数
-   * 如果此时没有另外发生过minor-gc, 则会触发major-gc
+   * 如果此时没有另外发生过minor-gc, 则触发一次minor-gc, 否则触发major-gc
    */
   void restart_gc() const;
 
@@ -290,6 +290,11 @@ public:
 
   bool is_alloc_stalling() const;
   bool is_alloc_stalling_for_old() const;
+
+  /**
+   * minor-gc结束, 但是仍然有等待内存的页表分配任务时调用到该函数
+   * 如果此时没有另外发生过minor-gc, 则触发一次minor-gc, 否则触发major-gc
+   */
   void handle_alloc_stalling_for_young();
   void handle_alloc_stalling_for_old(bool cleared_soft_refs);
 

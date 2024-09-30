@@ -97,6 +97,9 @@ public:
   zoffset alloc_low_address_at_most(size_t size, size_t* allocated);
   zoffset alloc_high_address(size_t size);
 
+  /**
+   * 将地址段退回到freelist当中
+   */
   void free(zoffset start, size_t size);
 };
 

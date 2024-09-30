@@ -68,6 +68,9 @@ private:
   size_t              _ncontinue;
   uint                _nworkers;
 
+  /**
+   * MIN2(round_down_power_of_2(nworkers), ZMarkStripesMax)
+   */
   size_t calculate_nstripes(uint nworkers) const;
 
   bool is_array(zaddress addr) const;
@@ -139,6 +142,12 @@ public:
   template <bool resurrect, bool gc_thread, bool follow, bool finalizable>
   void mark_object(zaddress addr);
 
+  /**
+   * 1. 将计数器清零
+   * 2. 设置工作线程数
+   * 3. 根据工作线程数计算条纹数nstripes
+   * 4. 更新统计值
+   */
   void start();
   void mark_young_roots();
   void mark_old_roots();

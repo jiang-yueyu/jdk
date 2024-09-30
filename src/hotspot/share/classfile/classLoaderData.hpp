@@ -68,7 +68,14 @@ class ClassLoaderData : public CHeapObj<mtClass> {
   friend class VMStructs;
 
  private:
+
+  /**
+   * 链表+数组的存储结构, 一个链节点存储最大32个对象地址
+   */
   class ChunkedHandleList {
+    /**
+     * 链节点, 最大存储32个对象地址
+     */
     struct Chunk : public CHeapObj<mtClass> {
       static const size_t CAPACITY = 32;
 
@@ -132,8 +139,14 @@ class ClassLoaderData : public CHeapObj<mtClass> {
 
   volatile int _claim; // non-zero if claimed, for example during GC traces.
                        // To avoid applying oop closure more than once.
-  ChunkedHandleList _handles; // Handles to constant pool arrays, Modules, etc, which
-                              // have the same life cycle of the corresponding ClassLoader.
+
+  /**
+   * 如果不是boot-class-loader, 那么容器里的第一个对象是class-loader自身的java对象
+   * ClassLoader Class Module 常量池引用等对象地址会被加入到这个容器中
+   * Handles to constant pool arrays, Modules, etc, which
+   * have the same life cycle of the corresponding ClassLoader.
+   */ 
+  ChunkedHandleList _handles;
 
   NOT_PRODUCT(volatile int _dependency_count;)  // number of class loader dependencies
 
@@ -186,6 +199,9 @@ class ClassLoaderData : public CHeapObj<mtClass> {
   ClassLoaderData* next() const;
   void unlink_next();
 
+  /**
+   * @param h_class_loader 如果是boot-loader则为null, 否则是ClassLoader对象
+   */
   ClassLoaderData(Handle h_class_loader, bool has_class_mirror_holder);
 
 public:

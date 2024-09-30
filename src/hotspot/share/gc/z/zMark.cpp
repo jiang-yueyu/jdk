@@ -706,7 +706,8 @@ public:
  * 仅当对象地址所属的页表是年轻代(新生代和存活区)时才执行标记
  * 此处接受的oop*是二级指针, 直接在一级指针上执行染色标记
  * 此处的标记会将指针颜色调整为ZPointerLoadGoodMask | ZPointerMarkedYoung | ZPointerRememberedMask
- * 标记过程会将对象的对象类型字段推入标记栈中
+ * 标记过程会将对象的对象字段推入标记栈中
+ * 另外注意到, 在遥远的ZCollectedHeap中, 分配对象返回的是无染色的zaddress, 那么对于从未标记过的对象, 一定会被标记一次
  */
 class ZMarkYoungOopClosure : public OopClosure {
 public:
@@ -719,6 +720,9 @@ public:
   }
 };
 
+/**
+ * 标记线程调用栈上的对象
+ */
 class ZMarkThreadClosure : public ThreadClosure {
 private:
   static ZUncoloredRoot::RootFunction root_function() {
@@ -741,6 +745,10 @@ public:
   }
 };
 
+/**
+ * 标记代码块里的对象
+ * 代码块里有一个专门的地址段用于维护对象引用
+ */
 class ZMarkNMethodClosure : public NMethodClosure {
 private:
   ZBarrierSetNMethod* const _bs_nm;
@@ -770,6 +778,10 @@ public:
   }
 };
 
+/**
+ * 标记代码块里的对象
+ * 代码块里有一个专门的地址段用于维护对象引用
+ */
 class ZMarkYoungNMethodClosure : public NMethodClosure {
 private:
   ZBarrierSetNMethod* const _bs_nm;
@@ -865,6 +877,9 @@ public:
   }
 };
 
+/**
+ * 遍历ClassLoaderData::_handles中的对象, 包括自身 类 模块 常量池引用等
+ */
 class ZMarkYoungCLDClosure : public ClaimingCLDToOopClosure<ClassLoaderData::_claim_none> {
 public:
   virtual void do_cld(ClassLoaderData* cld) {
@@ -885,11 +900,13 @@ private:
 
   /**
    * 接受类加载器数据和对象数据
+   * 标记Strong Weak两个OopStorage, 标记所有的ClassLoader及其Class Module 常量池引用等对象
    */
   ZRootsIteratorAllColored   _roots_colored;
 
   /**
-   * 接受线程数据和类元数据
+   * 接受线程数据(函数栈)和JIT编译后的方法代码块
+   * 标记栈上对象和代码块里的对象引用
    */
   ZRootsIteratorAllUncolored _roots_uncolored;
 

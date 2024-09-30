@@ -337,6 +337,10 @@ public:
    * ZPointerMarkedYoung ZPointerRemembered 切换01相位
    */
   static void flip_young_mark_start();
+
+  /**
+   * ZPointerRemappedYoungMask相位反转
+   */
   static void flip_young_relocate_start();
   static void flip_old_mark_start();
   static void flip_old_relocate_start();

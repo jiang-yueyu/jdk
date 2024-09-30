@@ -911,7 +911,7 @@ private:
 
     /**
      * 对于原地转移并晋升的情况, 需要复制一份页表对象出来, 新页表置换掉旧页表, 旧页表对象等待后续回收
-     * 这里的复制并不会立即复制页表的顶部地址, 但是reset函数会调整顶部地址, 所以并不会影响这个页表后续的内存分配
+     * 这里的复制并不会复制页表的顶部地址, 因为这个情况下目标页表是当作一个空页表对待的
      */
     // Promotions happen through a new cloned page
     ZPage* const to_page = promotion ? from_page->clone_limited() : from_page;
@@ -931,7 +931,23 @@ private:
   }
 
   /**
-   * 首先在现有的目标页表上执行转移, 不成功则分配一个页表进行转移, 再不成功就执行原地转移
+   * 1. 尝试在现有的目标页表上执行转移
+   * - 如果对象地址已经被转移, 则返回转移后的地址
+   * - 如果无法在目标页表上分配出相同尺寸的对象, 返回null
+   * - 将对象复制到目标地址上, 然后把目标地址插入到转发表中
+   * - 插入失败代表已经被其他线程转移走了, 回滚内存分配
+   * - ?? 对目标地址的使用涉及到remembered_set, 深坑 ??
+   * 2. 如果转移不成功则分配一个页表进行转移
+   * - 分配一个新页表当作目标页表, 当旧的目标页表为空时将其释放
+   * - 这一步的target(to_age)可以返回null
+   * - 如果分配成功, 重新执行步骤1
+   * 3. 再不成功时执行原地转移
+   * - 首先等待当前线程独占转发表
+   * - 给转发表设置原地转移的初始标记
+   * - 如果需要晋升则复制一份页表对象作为目标页表, 否则直接将自身当作目标
+   * - 调整目标页表的年龄
+   * - 如果需要晋升到老年代, 则执行页表置换 & 分代内存尺寸调整 & 将旧页表注册到待回收列表中
+   * - 返回新页表, 将这个页表当作目标页表
    */
   void relocate_object(oop obj) {
     const zaddress addr = to_zaddress(obj);
@@ -1046,15 +1062,34 @@ public:
     }
   }
 
+  /**
+   * 如果此次转移不能够晋升到老年代, 将页表的livemap的年龄置零
+   * 释放掉执行任务的线程标记
+   * ?? TODO 看看里面的todo项 ??
+   */
   void finish_in_place_relocation() {
     // We are done with the from_space copy of the page
     _forwarding->in_place_relocation_finish();
   }
 
   /**
-   * 首先遍历页表上的对象, 对每个对象执行转移
-   * 然后修改被回收的字节数
-   * ?? TODO ??
+   * 1. 遍历页表上的对象, 对每个对象执行转移
+   * - 首先尝试在目标页表上分配对象并转移
+   * - 如果失败则分配一个页表当作目标页表
+   * - 再失败时执行原地转移, 并将当前页表当作目标页表
+   * 2. 修改被回收的字节数
+   * 3. 对于原地转移的情况:
+   * - 如果不能晋升到老年代, 将页表的livemap的年龄置零
+   * - 释放掉执行任务的线程标记
+   * 4. 如果转移的起始页表已经是老年代 ?? TODO 涉及到remembered_set, 深坑 ??
+   * 5. 对于原地转移的情况:
+   * - 等待转发表的引用计数归零
+   * - 如果是老年代到老年代的转移 ?? TODO 涉及到remembered_set, 深坑 ??
+   * - 获取到转移目标年龄的转移目标页表, 将它作为分配器的共享页表
+   *    否则:
+   * - 等待转发表的引用计数归零
+   * - ?? TODO 涉及到remembered_set, 深坑 ??
+   * - 释放页表
    */
   void do_forwarding(ZForwarding* forwarding) {
     _forwarding = forwarding;
@@ -1074,7 +1109,8 @@ public:
     }
 
     /**
-     * 转移结束后, 未被转移走的对象就代表需要被回收
+     * 修改被释放的字节数
+     * 转移结束后, 未被转移走的对象就代表需要被回收, 但是这里并不关注对象的字节数
      * 内存回收是以页表为单位进行的, 直接计入整个页表的字节数
      */
     _generation->increase_freed(_forwarding->page()->size());
@@ -1163,6 +1199,29 @@ public:
   }
 };
 
+/**
+  * 首先执行转移队列里的转发表
+  * 然后尝试对转移集里的转发表加原子锁, 加锁成功后执行转发任务
+  * 转移的执行过程如下
+  * 1. 遍历页表上的对象, 对每个对象执行转移
+  * - 首先尝试在目标页表上分配对象并转移
+  * - 如果失败则分配一个页表当作目标页表
+  * - 再失败时执行原地转移, 并将当前页表当作目标页表
+  * 2. 修改被回收的字节数
+  * 3. 对于原地转移的情况:
+  * - 如果不能晋升到老年代, 将页表的livemap的年龄置零
+  * - 释放掉执行任务的线程标记
+  * 4. 如果转移的起始页表已经是老年代 ?? TODO 涉及到remembered_set, 深坑 ??
+  * 5. 对于原地转移的情况:
+  * - 等待转发表的引用计数归零
+  * - 如果是老年代到老年代的转移 ?? TODO 涉及到remembered_set, 深坑 ??
+  * - 获取到转移目标年龄的转移目标页表, 将它作为分配器的共享页表
+  *    否则:
+  * - 等待转发表的引用计数归零
+  * - ?? TODO 涉及到remembered_set, 深坑 ??
+  * - 释放页表
+  * 6. 设置转发表上的完成标记
+  */
 class ZRelocateTask : public ZRestartableTask {
 private:
   ZRelocationSetParallelIterator _iter;
@@ -1187,10 +1246,6 @@ public:
     _queue->deactivate();
   }
 
-  /**
-   * 首先执行转移队列里的任务
-   * 然后执行转移集里的任务
-   */
   virtual void work() {
     ZRelocateWork<ZRelocateSmallAllocator> small(&_small_allocator, _generation);
     ZRelocateWork<ZRelocateMediumAllocator> medium(&_medium_allocator, _generation);
@@ -1213,12 +1268,18 @@ public:
       forwarding->mark_done();
     };
 
+    /**
+     * 如果能够加上原子锁, 执行do_forwarding
+     */
     const auto claim_and_do_forwarding = [&](ZForwarding* forwarding) {
       if (forwarding->claim()) {
         do_forwarding(forwarding);
       }
     };
 
+    /**
+     * 遍历转移集里的转发表, 如果能加上原子锁则执行do_forwarding
+     */
     const auto do_forwarding_one_from_iter = [&]() {
       ZForwarding* forwarding;
 

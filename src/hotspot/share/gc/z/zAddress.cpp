@@ -86,6 +86,9 @@ void ZGlobalsPointers::set_good_masks() {
   set_vector_mask(ZPointerVectorStoreBadMask, ZPointerStoreBadMask);
   set_vector_mask(ZPointerVectorStoreGoodMask, ZPointerStoreGoodMask);
 
+  /**
+   * 和平台实现有关, 可以是nop, 不管
+   */
   pd_set_good_masks();
 }
 

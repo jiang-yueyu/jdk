@@ -61,6 +61,11 @@ private:
   ZPage* const           _page;
   ZPageAge               _from_age;
   ZPageAge               _to_age;
+
+  /**
+   * 一次性的原子锁, 不会被归零
+   * 仅在执行转移集任务时被使用, 代表该转发表被某个执行器线程独占
+   */
   volatile bool          _claimed;
   mutable ZConditionLock _ref_lock;
 
@@ -272,7 +277,7 @@ public:
   ZPage* page();
 
   /**
-   * 任务执行完以后被ZRelocateTask调用
+   * 标记_done=true, 任务执行完以后被ZRelocateTask调用
    */
   void mark_done();
   bool is_done() const;

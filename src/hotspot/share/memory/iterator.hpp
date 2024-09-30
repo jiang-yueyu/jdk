@@ -151,7 +151,9 @@ class MetadataClosure : public Closure {
   virtual void do_metadata(Metadata* md) = 0;
 };
 
-
+/**
+ * 遍历ClassLoaderData::_handles中的对象, 包括自身 类 模块 常量池引用等
+ */
 class CLDToOopClosure : public CLDClosure {
   OopClosure*       _oop_closure;
   int               _cld_claim;

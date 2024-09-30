@@ -87,6 +87,10 @@ public:
   zoffset lowest_available_address() const;
 
   ZVirtualMemory alloc(size_t size, bool force_low_address);
+
+  /**
+   * 将地址段退回到freelist当中
+   */
   void free(const ZVirtualMemory& vmem);
 };
 
