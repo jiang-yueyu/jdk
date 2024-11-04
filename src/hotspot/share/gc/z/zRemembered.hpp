@@ -85,10 +85,12 @@ public:
   void remember(volatile zpointer* p) const;
 
   // Scan all remembered sets and follow
+  // ?? TODO ??, 然后执行mark_follow
   void scan_and_follow(ZMark* mark);
 
   // Save the current remembered sets,
   // and switch over to empty remembered sets.
+  // 在mark_start阶段被翻转, 对换previous和current
   void flip();
 
   // Scan a remembered set entry

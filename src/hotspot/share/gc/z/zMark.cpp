@@ -657,8 +657,6 @@ void ZMark::leave() {
   _terminate.leave();
 }
 
-// Returning true means marking finished successfully after marking as far as it could.
-// Returning false means that marking finished unsuccessfully due to abort or resizing.
 bool ZMark::follow_work(bool partial) {
   ZMarkStripe* const stripe = _stripes.stripe_for_worker(_nworkers, WorkerThread::worker_id());
   ZMarkThreadLocalStacks* const stacks = ZThreadLocalData::mark_stacks(Thread::current(), _generation->id());
@@ -894,6 +892,9 @@ public:
     : ClaimingCLDToOopClosure<ClassLoaderData::_claim_none>(cl) {}
 };
 
+/**
+ * 扫描strong+weak所有的oop-storage中的对象, classloader及其class module 常量等对象, 函数调用栈中的对象, 对扫描到的gcroot对象执行ZMarkYoungOopClosure, 此处的标记会将指针颜色调整为ZPointerLoadGoodMask | ZPointerMarkedYoung | ZPointerRememberedMask, 并将对象推入到标记栈中
+ */
 class ZMarkYoungRootsTask : public ZTask {
 private:
   ZMark* const               _mark;
@@ -901,6 +902,13 @@ private:
   /**
    * 接受类加载器数据和对象数据
    * 标记Strong Weak两个OopStorage, 标记所有的ClassLoader及其Class Module 常量池引用等对象
+   * StrongOopStorage包括五个存储器: VM Global, JVMTI OopStorage, JNI Global, Thread OopStorage, ThreadService OopStorage
+   * - VM Global: jvm运行所需的全局对象
+   * - JVMTI OopStorage: 虚拟机工具接口所需的特定对象
+   * - JNI Global: JNI中创建的全局引用
+   * - Thread OopStorage: 线程对象
+   * - ThreadService OopStorage: 线程对象的扩展, 包含stackframe和stacktrace等
+   * WeakOopStoreage包括十个存储器: StringTable Weak, StringDedup Requests0 Weak, StringDedup Requests1 Weak, StringDedup Table Weak, Weak JFR Old Object Samples, VM Weak, JVMTI Tag Weak OopStorage, ResolvedMethodTable Weak, JNI Weak, ObjectSynchronizer Weak
    */
   ZRootsIteratorAllColored   _roots_colored;
 

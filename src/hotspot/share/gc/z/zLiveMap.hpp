@@ -43,17 +43,51 @@ private:
   volatile uint32_t _seqnum;
   volatile uint32_t _live_objects;
   volatile size_t   _live_bytes;
+
+  /**
+   * 64位的bitset, 指示一个段是否存活
+   */
   BitMap::bm_word_t _segment_live_bits;
+
+  /**
+   * 64位的bitset, 用作自旋锁, 指示一个段是否已经被独占
+   */
   BitMap::bm_word_t _segment_claim_bits;
+
+  /**
+   * 分为64个段, 指示相应的地址是否存活
+   * 相邻两个位是一个组, finalizable仅标记其中的奇数位, 强引用会标记奇偶两个位
+   */
   ZBitMap           _bitmap;
+
+  /**
+   * 仅在页表发生尺寸变更时更新
+   */
   int               _segment_shift;
 
+  /**
+   * _segment_live_bits的视图
+   */
   const BitMapView segment_live_bits() const;
+
+  /**
+   * _segment_claim_bits的视图
+   */
   const BitMapView segment_claim_bits() const;
 
+  /**
+   * _segment_live_bits的视图
+   */
   BitMapView segment_live_bits();
+
+  /**
+   * _segment_claim_bits的视图
+   */
   BitMapView segment_claim_bits();
 
+  /**
+   * 单个段的尺寸
+   */
   BitMap::idx_t segment_size() const;
 
   BitMap::idx_t segment_start(BitMap::idx_t segment) const;
@@ -66,9 +100,20 @@ private:
   BitMap::idx_t next_live_segment(BitMap::idx_t segment) const;
   BitMap::idx_t index_to_segment(BitMap::idx_t index) const;
 
+  /**
+   * 尝试加自旋锁
+   */
   bool claim_segment(BitMap::idx_t segment);
 
+  /**
+   * 如果当前的年龄不等于分代的最新年龄, 则在加锁以后清空计数和live_bits claim_bits两个段, 并更新到最新年龄
+   */
   void reset(ZGenerationId id);
+
+  /**
+   * 给指定的段加自旋锁后, 清理掉这个段上的存活记录, 然后将这个段标记为存活
+   * 仅在执行标记且段未存活时被调用
+   */
   void reset_segment(BitMap::idx_t segment);
 
   size_t do_object(ObjectClosure* cl, zaddress addr) const;
@@ -83,11 +128,17 @@ public:
   void reset();
   void resize(uint32_t size);
 
+  /**
+   * 比较当前年龄和分代的最新年龄, 相等代表已经被标记过
+   */
   bool is_marked(ZGenerationId id) const;
 
   uint32_t live_objects() const;
   size_t live_bytes() const;
 
+  /**
+   * @return 页表年龄等于最新分代年龄 && 所属段已被标记 && 地址已被标记
+   */
   bool get(ZGenerationId id, BitMap::idx_t index) const;
 
   /**

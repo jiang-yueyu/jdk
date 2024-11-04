@@ -234,6 +234,9 @@ private:
 
   class Table {
   private:
+    /**
+     * oop_oop_iterate_reverse的最外层入口
+     */
     template <typename KlassType, typename T>
     static void oop_oop_iterate_backwards(OopClosureType* cl, oop obj, Klass* k) {
       ((KlassType*)k)->KlassType::template oop_oop_iterate_reverse<T>(obj, cl);

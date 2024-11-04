@@ -83,6 +83,9 @@ inline bool ZBitMap::par_set_bit_pair_strong(idx_t bit, bool& inc_live) {
   } while (true);
 }
 
+/**
+ * @param finalizable 为true时只设置bit对应的位, 否则需要设置index(bit) index(bit) + 1两个位
+ */
 inline bool ZBitMap::par_set_bit_pair(idx_t bit, bool finalizable, bool& inc_live) {
   if (finalizable) {
     return par_set_bit_pair_finalizable(bit, inc_live);

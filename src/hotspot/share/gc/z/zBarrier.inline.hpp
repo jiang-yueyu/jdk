@@ -320,12 +320,13 @@ inline zaddress ZBarrier::make_load_good_no_relocate(zpointer o) {
 }
 
 /**
-  * @param fast_path 判断一个指针是否已经通过屏障
-  * @param slow_path 执行屏障逻辑
-  * @param color 将通过屏障的地址值和旧指针的颜色, 染色生成新指针
-  * @param p 原始二级指针
-  * @param o 二级指针指向的java对象
-  */
+ * @param fast_path 判断一个指针是否已经通过屏障
+ * @param slow_path 执行屏障逻辑
+ * @param color 将通过屏障的地址值和旧指针的颜色, 染色生成新指针
+ * @param p 原始二级指针, 会将更新后的地址值染色成指针, 并赋值给二级指针
+ * @param o 二级指针指向的java对象
+ * @return 如果根据fast_path判断出已通过屏障, 则返回原始地址; 否则返回执行屏障逻辑后的地址
+ */
 template <typename ZBarrierSlowPath>
 inline zaddress ZBarrier::barrier(ZBarrierFastPath fast_path, ZBarrierSlowPath slow_path, ZBarrierColor color, volatile zpointer* p, zpointer o, bool allow_null) {
   z_verify_safepoints_are_blocked();
@@ -435,6 +436,9 @@ inline zpointer color_finalizable_good(zaddress new_addr, zpointer old_ptr) {
   }
 }
 
+/**
+ * ZPointerLoadGoodMask | ZPointerMarkedYoung | ZPointerMarkedOld | ZPointerRememberedMask
+ */
 inline zpointer color_mark_good(zaddress new_addr, zpointer old_ptr) {
   return ZAddress::mark_good(new_addr, old_ptr);
 }

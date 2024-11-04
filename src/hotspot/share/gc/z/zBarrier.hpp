@@ -80,6 +80,15 @@ class ZBarrier : public AllStatic {
 
 private:
   static void assert_transition_monotonicity(zpointer ptr, zpointer heal_ptr);
+
+  /**
+   * 使用cas将指针的值更新为目标值, 失败时通过fast_path检查最新值是否已经处理过, 决定直接返回或者继续重试
+   * @param fast_path 检查指针最新值是否已经处理过
+   * @param p 待更新的指针
+   * @param ptr 指针的旧值
+   * @param heal_ptr 待更新的目标值
+   * @param allow_null 预检查, 传入true且尝试将null赋值给有值指针时直接返回
+   */
   static void self_heal(ZBarrierFastPath fast_path, volatile zpointer* p, zpointer ptr, zpointer heal_ptr, bool allow_null);
 
   /**
@@ -93,7 +102,7 @@ private:
   static zaddress barrier(ZBarrierFastPath fast_path, ZBarrierSlowPath slow_path, ZBarrierColor color, volatile zpointer* p, zpointer o, bool allow_null = false);
 
   /**
-   * 将指针转换到最新的地址, 期间会执行必要的转移动作
+   * 将指针转换到最新的地址, 期间会执行必要的转移动作. null -> null
    */
   static zaddress make_load_good(zpointer ptr);
   static zaddress make_load_good_no_relocate(zpointer ptr);
@@ -118,7 +127,21 @@ private:
   // Slow paths
   static zaddress blocking_keep_alive_on_weak_slow_path(volatile zpointer* p, zaddress addr);
   static zaddress blocking_keep_alive_on_phantom_slow_path(volatile zpointer* p, zaddress addr);
+
+  /**
+   * 如果地址是年轻代, 且gc处于标记阶段, 则做一次标记
+   * @param p 无作用, 仅用于保持函数签名
+   * @param addr 待检查的地址
+   * @return 如果传入的地址为null, 或是没有强引用的老年代对象地址, 则返回null, 否则返回addr
+   */
   static zaddress blocking_load_barrier_on_weak_slow_path(volatile zpointer* p, zaddress addr);
+
+  /**
+   * 如果地址是年轻代, 且gc处于标记阶段, 则做一次标记
+   * @param p 无作用, 仅用于保持函数签名
+   * @param addr 待检查的地址
+   * @return 如果传入的地址为null, 或是没有强/final引用的老年代对象地址, 则返回null, 否则返回addr
+   */
   static zaddress blocking_load_barrier_on_phantom_slow_path(volatile zpointer* p, zaddress addr);
 
   static zaddress mark_slow_path(zaddress addr);
@@ -130,6 +153,7 @@ private:
   
   /**
    * 如果地址是年轻代对象则执行标记; 如果此时正在执行major-gc也会执行标记
+   * 标记规则为<ZMark::DontResurrect, ZMark::GCThread, ZMark::Follow, ZMark::Strong>
    */
   static zaddress mark_from_young_slow_path(zaddress addr);
   static zaddress mark_from_old_slow_path(zaddress addr);
@@ -187,8 +211,20 @@ public:
   static zaddress no_keep_alive_load_barrier_on_phantom_oop_field_preloaded(volatile zpointer* p, zpointer o);
 
   // Reference processor / weak cleaning barriers
+
+  /**
+   * 如果地址属于老年代且没有被强引用则返回true, 否则返回false; 如果地址属于年轻代且处于young-mark阶段则做一次标记
+   */
   static bool clean_barrier_on_weak_oop_field(volatile zpointer* p);
+
+  /**
+   * 如果地址属于老年代且没有被强/final引用则返回true, 否则返回false; 如果地址属于年轻代且处于young-mark阶段则做一次标记
+   */
   static bool clean_barrier_on_phantom_oop_field(volatile zpointer* p);
+
+  /**
+   * 如果地址属于老年代且仅被final引用未被强引用时返回true, 否则返回false; 如果地址属于年轻代且处于young-mark阶段则做一次标记
+   */
   static bool clean_barrier_on_final_oop_field(volatile zpointer* p);
 
   // Mark barrier

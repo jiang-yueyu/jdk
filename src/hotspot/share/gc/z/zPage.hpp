@@ -142,6 +142,10 @@ public:
   ZPageAge age() const;
 
   uint32_t seqnum() const;
+
+  /**
+   * @return 当前年龄 == 所属分代的最新年龄
+   */
   bool is_allocating() const;
 
   /**

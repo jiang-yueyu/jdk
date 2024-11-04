@@ -206,6 +206,10 @@ public:
   void mark_object(zaddress addr);
   template <bool resurrect, bool gc_thread, bool follow, bool finalizable>
   void mark_object_if_active(zaddress addr);
+
+  /**
+   * 将线程独享的标记栈转移到全局标记器条纹_stripes中
+   */
   void mark_flush_and_free(Thread* thread);
 
   // Relocation
@@ -242,6 +246,10 @@ class ZGenerationYoung : public ZGeneration {
 
 private:
   ZYoungType   _active_type;
+
+  /**
+   * 提前晋升的年龄阈值
+   */
   uint         _tenuring_threshold;
   ZRemembered  _remembered;
   ZYoungTracer _jfr_tracer;
@@ -268,6 +276,12 @@ private:
    * 8. 更新统计值
    */
   void mark_start();
+
+  /**
+   *
+   * 扫描strong+weak所有的oop-storage中的对象, classloader及其class module 常量等对象, 函数调用栈中的对象, 对扫描到的gcroot对象执行ZMarkYoungOopClosure
+   * 此处的标记会将指针颜色调整为ZPointerLoadGoodMask | ZPointerMarkedYoung | ZPointerRememberedMask, 并将对象推入到标记栈中
+   */
   void mark_roots();
   void mark_follow();
 
@@ -406,7 +420,6 @@ public:
 
   // Add remembered set entries
   void remember(volatile zpointer* p);
-  void remember_fields(zaddress addr);
 
   // Scan a remembered set entry
   void scan_remembered_field(volatile zpointer* p);

@@ -78,6 +78,12 @@ void ZGlobalsPointers::set_good_masks() {
   ZPointerMarkGoodMask  = ZPointerLoadGoodMask | ZPointerMarkedYoung | ZPointerMarkedOld;
   ZPointerStoreGoodMask = ZPointerMarkGoodMask | ZPointerRemembered;
 
+  // 0 0 -> 0
+  // 0 1 -> 1
+  // 1 0 -> 1
+  // 1 1 -> 0
+  // a = b ^ c
+  // a & b = ?;
   ZPointerLoadBadMask  = ZPointerLoadGoodMask  ^ ZPointerLoadMetadataMask;
   ZPointerMarkBadMask  = ZPointerMarkGoodMask  ^ ZPointerMarkMetadataMask;
   ZPointerStoreBadMask = ZPointerStoreGoodMask ^ ZPointerStoreMetadataMask;

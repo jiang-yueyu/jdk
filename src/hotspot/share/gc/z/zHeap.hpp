@@ -97,8 +97,16 @@ public:
 
   // Liveness
   bool is_object_live(zaddress addr) const;
+
+  /**
+   * @return 所属页表的年龄等于所属分代的最新年龄 || 地址存在强引用
+   */
   bool is_object_strongly_live(zaddress addr) const;
   void keep_alive(oop obj);
+
+  /**
+   * 对young old两代各调一次mark_flush_and_free, 将线程独享的标记栈转移到全局标记器条纹_stripes中
+   */
   void mark_flush_and_free(Thread* thread);
 
   // Page allocation

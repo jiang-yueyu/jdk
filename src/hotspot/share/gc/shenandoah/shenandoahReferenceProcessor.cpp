@@ -115,6 +115,9 @@ static oop reference_discovered(oop reference) {
   return lrb(CompressedOops::decode(heap_oop));
 }
 
+/**
+ * 直接给Reference::discovered字段赋值
+ */
 template <typename T>
 static void reference_set_discovered(oop reference, oop discovered);
 

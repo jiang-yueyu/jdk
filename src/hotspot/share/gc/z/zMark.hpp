@@ -73,11 +73,36 @@ private:
    */
   size_t calculate_nstripes(uint nworkers) const;
 
+  /**
+   * @return 是对象数组时返回true
+   */
   bool is_array(zaddress addr) const;
+
+  /**
+   * 编码为partial_array后推入标记栈中
+   */
   void push_partial_array(zpointer* addr, size_t length, bool finalizable);
+
+  /**
+   * 对数组元素执行mark_barrier
+   */
   void follow_array_elements_small(zpointer* addr, size_t length, bool finalizable);
+
+  /**
+   * 对于长数组, 将它切割成长度为512的若干个段, 头部的段当作一个普通短数组处理, 其余的段推入标记栈中
+   */
   void follow_array_elements_large(zpointer* addr, size_t length, bool finalizable);
+
+  /**
+   * 仅用于对象数组, 基元数组不需要标记元素
+   * 如果数组长度小于512则立即执行mark_barrier
+   * 否则切割为最大长度为512的多个段, 首个段的元素执行mark_barrier, 余下的段按照partial_array推入标记栈中
+   */
   void follow_array_elements(zpointer* addr, size_t length, bool finalizable);
+
+  /**
+   * 取到地址和长度以后执行follow_array_elements
+   */
   void follow_partial_array(ZMarkStackEntry entry, bool finalizable);
 
   /**
@@ -123,8 +148,11 @@ private:
   ZWorkers* workers() const;
 
   /**
-   * 将能清空的标记栈都清空
-   * @param partial false时会执行terminate
+   * 清空当前标记栈中的任务, 然后将stripe中的任务转移到标记栈中, 循环执行直到任务清空
+   * Returning true means marking finished successfully after marking as far as it could.
+   * Returning false means that marking finished unsuccessfully due to abort or resizing.
+   * @param partial 如果为true, 则任务转移完成后立即返回, 不会执行后续的终止流程
+   * @return true代表成功完成所有标记, false代表因为终止或调整工作线程数量而导致失败
    */
   bool follow_work(bool partial);
 
@@ -149,6 +177,12 @@ public:
    * 4. 更新统计值
    */
   void start();
+
+  /**
+   *
+   * 扫描strong+weak所有的oop-storage中的对象, classloader及其class module 常量等对象, 函数调用栈中的对象, 对扫描到的gcroot对象执行ZMarkYoungOopClosure
+   * 此处的标记会将指针颜色调整为ZPointerLoadGoodMask | ZPointerMarkedYoung | ZPointerRememberedMask, 并将对象推入到标记栈中
+   */
   void mark_young_roots();
   void mark_old_roots();
   void mark_follow();
@@ -159,15 +193,32 @@ public:
   bool end();
   void free();
 
+  /**
+   * 对当前线程调用flush_and_free(Thread*)
+   */
   void flush_and_free();
+
+  /**
+   * 将线程独享的标记栈转移到全局标记器条纹_stripes中.
+   * 如果当前线程是java线程, 还会?? TODO ??. 启用诊断参数时才会进入到该分支, 先不管
+   */
   bool flush_and_free(Thread* thread);
 
   // Following work
   void prepare_work();
   void finish_work();
   void resize_workers(uint nworkers);
+
+  /**
+   * 按照partial=false执行follow_work
+   */
   void follow_work_complete();
+
+  /**
+   * 按照partial=true执行follow_work
+   */
   bool follow_work_partial();
+
   bool try_terminate_flush();
 };
 

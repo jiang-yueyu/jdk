@@ -87,6 +87,9 @@ static zaddress reference_next(zaddress reference) {
   return to_zaddress(java_lang_ref_Reference::next(to_oop(reference)));
 }
 
+/**
+ * 直接给next字段赋值
+ */
 static void reference_set_next(zaddress reference, zaddress next) {
   java_lang_ref_Reference::set_next(to_oop(reference), to_oop(next));
 }
@@ -97,6 +100,10 @@ static void soft_reference_update_clock() {
   java_lang_ref_SoftReference::set_clock(now);
 }
 
+/**
+ * 如果head是null则直接将reference赋值给head, 否则赋值给tail的discovered字段
+ * 并始终赋值给tail
+ */
 static void list_append(zaddress& head, zaddress& tail, zaddress reference) {
   if (is_null(head)) {
     // First append - set up the head
@@ -227,6 +234,8 @@ bool ZReferenceProcessor::try_make_inactive(zaddress reference, ReferenceType ty
       // call FinalReference.enqueue(), so there is no race to worry about
       // when setting the next field.
       assert(is_null(reference_next(reference)), "Already inactive");
+
+      // 让对象自己成环
       reference_set_next(reference, reference);
       return true;
     }

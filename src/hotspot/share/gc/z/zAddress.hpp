@@ -207,7 +207,9 @@ extern uintptr_t  ZPointerRemembered;
 extern uintptr_t  ZPointerRemappedYoungMask;
 extern uintptr_t  ZPointerRemappedOldMask;
 
-// Good/bad masks
+// Good/bad masks. Good/bad都是在相应的位上相反, 其他位上一致
+// x XOR 1 = !x
+// x XOR 0 = x
 
 /**
  * ZPointerRemapped & ZPointerRemappedMask
@@ -311,6 +313,10 @@ public:
 
   static zpointer load_good(zaddress addr, zpointer prev);
   static zpointer finalizable_good(zaddress addr, zpointer prev);
+
+  /**
+   * ZPointerLoadGoodMask | ZPointerMarkedYoung | ZPointerMarkedOld | ZPointerRememberedMask
+   */
   static zpointer mark_good(zaddress addr, zpointer prev);
   static zpointer mark_old_good(zaddress addr, zpointer prev);
 

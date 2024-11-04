@@ -973,6 +973,10 @@ class java_lang_ref_Reference: AllStatic {
   static inline void set_next_raw(oop ref, oop value);
   static inline HeapWord* next_addr_raw(oop ref);
   static inline oop discovered(oop ref);
+
+  /**
+   * 直接给Reference::discovered字段赋值
+   */
   static inline void set_discovered(oop ref, oop value);
   static inline void set_discovered_raw(oop ref, oop value);
   static inline HeapWord* discovered_addr_raw(oop ref);

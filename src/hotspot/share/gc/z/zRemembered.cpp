@@ -486,6 +486,9 @@ public:
     _remembered->clear_found_old_previous_set();
   }
 
+  /**
+   * 遍历记忆器的元组, 如果元组中转发表非空, 则?? TODO ??
+   */
   virtual void work_inner() {
     ZRememberedScanForwardingContext context;
 

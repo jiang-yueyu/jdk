@@ -106,10 +106,16 @@ public:
              field_partial_array::encode(true) |
              field_finalizable::encode(finalizable)) {}
 
+  /**
+   * 只有mark_finalizable_*入口产生的元组才是true, 最外层的finalizable标记入口是ZReferenceProcessor::discover
+   */
   bool finalizable() const {
     return field_finalizable::decode(_entry);
   }
 
+  /**
+   * true代表这个元组执行一个最大长度为512的局部数组地址段
+   */
   bool partial_array() const {
     return field_partial_array::decode(_entry);
   }

@@ -46,9 +46,17 @@ struct ZRememberedSetContaining {
 class ZRememberedSetContainingIterator {
 private:
   ZPage* const             _page;
+
+  /**
+   * 页表记忆集previous容器的反序迭代器
+   */
   ZBitMap::ReverseIterator _remset_iter;
 
   zaddress_unsafe          _obj;
+
+  /**
+   * 和_remset_iter规则一致, 但不是同一个迭代器
+   */
   ZBitMap::ReverseIterator _obj_remset_iter;
 
   size_t to_index(zaddress_unsafe addr);
