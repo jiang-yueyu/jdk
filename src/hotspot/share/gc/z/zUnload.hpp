@@ -34,6 +34,11 @@ public:
   ZUnload(ZWorkers* workers);
 
   void prepare();
+
+  /**
+   * 遍历ClassLoaderData, 如果已经没有被引用, 则执行卸载动作, 并将其转移到卸载列表的头部
+   * 如果任一类加载器被卸载, 则?? TODO ??
+   */
   void unlink();
   void purge();
   void finish();

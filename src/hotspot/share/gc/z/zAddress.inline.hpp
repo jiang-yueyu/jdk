@@ -247,6 +247,9 @@ inline void assert_is_valid(zpointer ptr) {
   DEBUG_ONLY(is_valid(ptr, true /* assert_on_failure */);)
 }
 
+/**
+ * 简单执行类型强转
+ */
 inline uintptr_t untype(zpointer ptr) {
   return static_cast<uintptr_t>(ptr);
 }
@@ -601,6 +604,10 @@ inline zoffset ZAddress::offset(zaddress_unsafe addr) {
   return to_zoffset(untype(addr) & ZAddressOffsetMask);
 }
 
+/**
+ * ZPointerMarkGoodMask | ZPointerRemembered | ZPointerRememberedMask
+ * ?? TODO 这组掩码有什么用, 为什么不能直接用null ??
+ */
 inline zpointer color_null() {
   return ZAddress::color(zaddress::null, ZPointerStoreGoodMask | ZPointerRememberedMask);
 }
@@ -610,8 +617,15 @@ inline zpointer ZAddress::load_good(zaddress addr, zpointer prev) {
     return color_null();
   }
 
+  // 相当于(ZPointerMarkedMask | ZPointerRememberedMask) & (~ZPointerLoadMetadataMask)
   const uintptr_t non_load_bits_mask = ZPointerLoadMetadataMask ^ ZPointerAllMetadataMask;
+
+  // prev & ((ZPointerMarkedMask | ZPointerRememberedMask) & (~ZPointerLoadMetadataMask))
   const uintptr_t non_load_prev_bits = untype(prev) & non_load_bits_mask;
+
+  // addr | ZPointerLoadGoodMask | ZPointerRememberedMask | (prev & (ZPointerMarkedMask & (~ZPointerLoadMetadataMask)))
+  ZPointerMarkedMask;
+  ZPointerLoadMetadataMask;
   return color(addr, ZPointerLoadGoodMask | non_load_prev_bits | ZPointerRememberedMask);
 }
 

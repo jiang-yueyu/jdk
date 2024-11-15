@@ -125,22 +125,43 @@ private:
   static bool is_finalizable_good_fast_path(zpointer ptr);
 
   // Slow paths
+  /**
+   * 如果地址是年轻代, 且gc处于标记阶段, 则做一次标记
+   * 和blocking_keep_alive_on_phantom_slow_path完全相同
+   * @param p 无作用, 仅用于保持函数签名
+   * @param addr 待检查的地址
+   * @return 如果传入的地址为null, 或是没有强引用的老年代对象地址, 则返回null, 否则返回addr 
+   * @see blocking_keep_alive_on_phantom_slow_path
+   */
   static zaddress blocking_keep_alive_on_weak_slow_path(volatile zpointer* p, zaddress addr);
+
+  /**
+   * 如果地址是年轻代, 且gc处于标记阶段, 则做一次标记
+   * 和blocking_load_barrier_on_phantom_slow_path完全相同
+   * @param p 无作用, 仅用于保持函数签名
+   * @param addr 待检查的地址
+   * @return 如果传入的地址为null, 或是没有强/final引用的老年代对象地址, 则返回null, 否则返回addr
+   * @see blocking_load_barrier_on_phantom_slow_path
+   */
   static zaddress blocking_keep_alive_on_phantom_slow_path(volatile zpointer* p, zaddress addr);
 
   /**
    * 如果地址是年轻代, 且gc处于标记阶段, 则做一次标记
+   * 和blocking_keep_alive_on_weak_slow_path完全相同
    * @param p 无作用, 仅用于保持函数签名
    * @param addr 待检查的地址
-   * @return 如果传入的地址为null, 或是没有强引用的老年代对象地址, 则返回null, 否则返回addr
+   * @return 如果传入的地址为null, 或是没有强引用的老年代对象地址, 则返回null, 否则返回addr 
+   * @see blocking_keep_alive_on_weak_slow_path
    */
   static zaddress blocking_load_barrier_on_weak_slow_path(volatile zpointer* p, zaddress addr);
 
   /**
    * 如果地址是年轻代, 且gc处于标记阶段, 则做一次标记
+   * 和blocking_keep_alive_on_phantom_slow_path完全相同
    * @param p 无作用, 仅用于保持函数签名
    * @param addr 待检查的地址
    * @return 如果传入的地址为null, 或是没有强/final引用的老年代对象地址, 则返回null, 否则返回addr
+   * @see blocking_keep_alive_on_phantom_slow_path
    */
   static zaddress blocking_load_barrier_on_phantom_slow_path(volatile zpointer* p, zaddress addr);
 
@@ -173,6 +194,11 @@ private:
   // Helpers for non-strong oop refs barriers
   static zaddress blocking_keep_alive_load_barrier_on_weak_oop_field_preloaded(volatile zpointer* p, zpointer o);
   static zaddress blocking_keep_alive_load_barrier_on_phantom_oop_field_preloaded(volatile zpointer* p, zpointer o);
+
+  /**
+   * 如果是年轻代且处于gc标记阶段, 则做一次标记, 否则无操作
+   * @return 如果传入的地址为null, 或是没有强引用的老年代对象地址, 则返回null, 否则返回对象地址
+   */
   static zaddress blocking_load_barrier_on_weak_oop_field_preloaded(volatile zpointer* p, zpointer o);
   static zaddress blocking_load_barrier_on_phantom_oop_field_preloaded(volatile zpointer* p, zpointer o);
 
@@ -196,7 +222,16 @@ public:
   static void mark_if_young(zaddress addr);
 
   // Load barrier
+
+  /**
+   * 按照load_good进行染色, 如果prev是null, 染色为ZPointerMarkGoodMask | ZPointerRemembered | ZPointerRememberedMask, 否则染色为addr | ZPointerLoadGoodMask | ZPointerRememberedMask | (prev & (ZPointerMarkedMask & (~ZPointerLoadMetadataMask)))
+   * 解引用p后调用load_barrier_on_oop_field_preloaded
+   */
   static zaddress load_barrier_on_oop_field(volatile zpointer* p);
+
+  /**
+   * 按照load_good进行染色, 如果prev是null, 染色为ZPointerMarkGoodMask | ZPointerRemembered | ZPointerRememberedMask, 否则染色为addr | ZPointerLoadGoodMask | ZPointerRememberedMask | (prev & (ZPointerMarkedMask & (~ZPointerLoadMetadataMask)))
+   */
   static zaddress load_barrier_on_oop_field_preloaded(volatile zpointer* p, zpointer o);
 
   static void load_barrier_on_oop_array(volatile zpointer* p, size_t length);
@@ -207,6 +242,10 @@ public:
   static zaddress load_barrier_on_weak_oop_field_preloaded(volatile zpointer* p, zpointer o);
   static zaddress load_barrier_on_phantom_oop_field_preloaded(volatile zpointer* p, zpointer o);
 
+  /**
+   * 如果禁用了引用复活机制, 则仅在对象属于年轻代且处于gc标记阶段时做一次标记, 此时如果对象没有被引用就返回null;
+   * 如果启用了引用复活机制, 则将指针染色为load_good, 返回对象地址
+   */
   static zaddress no_keep_alive_load_barrier_on_weak_oop_field_preloaded(volatile zpointer* p, zpointer o);
   static zaddress no_keep_alive_load_barrier_on_phantom_oop_field_preloaded(volatile zpointer* p, zpointer o);
 

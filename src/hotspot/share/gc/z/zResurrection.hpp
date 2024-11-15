@@ -28,6 +28,9 @@
 
 class ZResurrection : public AllStatic {
 private:
+  /**
+   *  在ZGenerationOld::mark_end阶段被设置为true, ZGenerationOld::process_non_strong_references阶段被设置为false
+   */
   static volatile bool _blocked;
 
 public:

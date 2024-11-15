@@ -33,6 +33,9 @@ private:
 public:
   ZWeakRootsProcessor(ZWorkers* workers);
 
+  /**
+   * 遍历weak类型的oop-storage-set, 如果处于young-mark阶段, 对其中的年轻代对象做一次标记
+   */
   void process_weak_roots();
 };
 

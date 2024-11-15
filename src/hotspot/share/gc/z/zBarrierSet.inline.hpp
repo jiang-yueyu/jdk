@@ -61,6 +61,10 @@ inline zpointer* ZBarrierSet::AccessBarrier<decorators, BarrierSetT>::field_addr
   return reinterpret_cast<zpointer*>(reinterpret_cast<intptr_t>((void*)base) + offset);
 }
 
+
+/**
+ * ?? TODO decorators必须包含ON_STRONG_OOP_REF ON_WEAK_OOP_REF ON_PHANTOM_OOP_REF三者之一, 看看classLoaderData的入口是怎么把这个包装加上去的 ??
+ */
 template <DecoratorSet decorators, typename BarrierSetT>
 inline zaddress ZBarrierSet::AccessBarrier<decorators, BarrierSetT>::load_barrier(zpointer* p, zpointer o) {
   verify_decorators_absent<ON_UNKNOWN_OOP_REF>();

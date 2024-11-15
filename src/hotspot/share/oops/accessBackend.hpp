@@ -590,6 +590,9 @@ namespace AccessInternal {
 
     static const DecoratorSet convert_compressed_oops = INTERNAL_RT_USE_COMPRESSED_OOPS | INTERNAL_CONVERT_COMPRESSED_OOP;
 
+    /**
+     * @return 不存在INTERNAL_VALUE_IS_OOP时返回true
+     */
     template<DecoratorSet decorators>
     static bool is_hardwired_primitive() {
       return !HasDecorator<decorators, INTERNAL_VALUE_IS_OOP>::value;
@@ -680,6 +683,7 @@ namespace AccessInternal {
     inline static typename EnableIf<
       !HasDecorator<decorators, AS_RAW>::value, T>::type
     load(void* addr) {
+      // 不存在INTERNAL_VALUE_IS_OOP时返回true
       if (is_hardwired_primitive<decorators>()) {
         const DecoratorSet expanded_decorators = decorators | AS_RAW;
         return PreRuntimeDispatch::load<expanded_decorators, T>(addr);

@@ -215,6 +215,9 @@ public:
              CLDClosure* cld_cl);
 };
 
+/**
+ * 遍历weak类型的oop-storage-set
+ */
 class ZRootsIteratorWeakColored {
 private:
   ZParallelApply<ZOopStorageSetIteratorWeak> _oop_storage_set_weak;

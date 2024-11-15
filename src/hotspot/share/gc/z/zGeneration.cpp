@@ -1355,7 +1355,11 @@ class ZRendezvousGCThreads: public VM_Operation {
   };
 };
 
-
+/**
+ * 1. 将引用处理器中已发现的待清理引用添加到pending列表中
+ * 2. 遍历weak类型的oop-storage-set, 如果处于young-mark阶段, 对其中的年轻代对象做一次标记
+ * 3. ?? TODO 类卸载 ??
+ */
 void ZGenerationOld::process_non_strong_references() {
   // Process Soft/Weak/Final/PhantomReferences
   _reference_processor.process_references();
@@ -1363,6 +1367,7 @@ void ZGenerationOld::process_non_strong_references() {
   // Process weak roots
   _weak_roots_processor.process_weak_roots();
 
+  // 构造函数内会将全局指针指向到创建出来的这个对象上
   ClassUnloadingContext ctx(_workers.active_workers(),
                             true /* unregister_nmethods_during_purge */,
                             true /* lock_nmethod_free_separately */);

@@ -187,9 +187,25 @@ constexpr int     ZPointerLoadShiftTable[] = {
 };
 
 // Barrier metadata masks
+
+/**
+ * const ZPointerRemappedMask
+ */
 const uintptr_t   ZPointerLoadMetadataMask  = ZPointerRemappedMask;
+
+/**
+ * const ZPointerRemappedMask | ZPointerMarkedMask
+ */
 const uintptr_t   ZPointerMarkMetadataMask  = ZPointerLoadMetadataMask | ZPointerMarkedMask;
+
+/**
+ * const ZPointerRemappedMask | ZPointerMarkedMask | ZPointerRememberedMask
+ */
 const uintptr_t   ZPointerStoreMetadataMask = ZPointerMarkMetadataMask | ZPointerRememberedMask;
+
+/**
+ * const ZPointerRemappedMask | ZPointerMarkedMask | ZPointerRememberedMask
+ */
 const uintptr_t   ZPointerAllMetadataMask   = ZPointerStoreMetadataMask;
 
 // The current expected bit
@@ -311,6 +327,10 @@ public:
   static zoffset offset(zaddress addr);
   static zoffset offset(zaddress_unsafe addr);
 
+  /**
+   * 如果prev是null, 返回ZPointerMarkGoodMask | ZPointerRemembered | ZPointerRememberedMask
+   * 否则返回addr | ZPointerLoadGoodMask | ZPointerRememberedMask | (prev & (ZPointerMarkedMask & (~ZPointerLoadMetadataMask)))
+   */
   static zpointer load_good(zaddress addr, zpointer prev);
   static zpointer finalizable_good(zaddress addr, zpointer prev);
 

@@ -65,6 +65,9 @@ static void keep_alive_young(zaddress addr) {
   }
 }
 
+/**
+ * @see blocking_load_barrier_on_weak_slow_path
+ */
 zaddress ZBarrier::blocking_keep_alive_on_weak_slow_path(volatile zpointer* p, zaddress addr) {
   if (is_null(addr)) {
     return zaddress::null;

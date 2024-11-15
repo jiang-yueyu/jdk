@@ -124,7 +124,7 @@ class ClassLoaderData : public CHeapObj<mtClass> {
                                     // classes in the class loader are allocated.
   Mutex* _metaspace_lock;  // Locks the metaspace for allocations and setup.
   bool _unloading;         // true if this class loader goes away
-  bool _has_class_mirror_holder; // If true, CLD is dedicated to one class and that class determines
+  const bool _has_class_mirror_holder; // If true, CLD is dedicated to one class and that class determines
                                  // the CLDs lifecycle.  For example, a non-strong hidden class.
                                  // Arrays of these classes are also assigned
                                  // to these class loader data.
@@ -242,6 +242,9 @@ private:
 
   Dictionary* create_dictionary();
 
+  /**
+   * 在引用计数即将清零的时候调用. 让gcroot对象通过读屏障, 此时如果没有被引用就会被置空
+   */
   void demote_strong_roots();
 
   void initialize_name(Handle class_loader);
@@ -323,6 +326,10 @@ private:
   // Used to refcount a non-strong hidden class's CLD in order to force its aliveness during
   // loading, when gc tracing may not find this CLD alive through the holder.
   void inc_keep_alive_ref_count();
+
+  /**
+   * _keep_alive_ref_count减1, 归零时让所有的gcroot对象通过读屏障, 已经没有被引用的对象会被置空
+   */
   void dec_keep_alive_ref_count();
 
   void initialize_holder(Handle holder);

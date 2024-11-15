@@ -423,6 +423,10 @@ inline zaddress ZBarrier::promote_slow_path(zaddress addr) {
 // Color functions
 //
 
+/**
+ * 如果prev是null, 返回ZPointerMarkGoodMask | ZPointerRemembered | ZPointerRememberedMask
+ * 否则返回addr | ZPointerLoadGoodMask | ZPointerRememberedMask | (prev & (ZPointerMarkedMask & (~ZPointerLoadMetadataMask)))
+ */
 inline zpointer color_load_good(zaddress new_addr, zpointer old_ptr) {
   return ZAddress::load_good(new_addr, old_ptr);
 }

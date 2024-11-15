@@ -34,6 +34,9 @@
 #include "runtime/atomic.hpp"
 #include "utilities/debug.hpp"
 
+/**
+ * 如果处于young-mark阶段, 对其中的年轻代对象做一次标记
+ */
 class ZPhantomCleanOopClosure : public OopClosure {
 public:
   virtual void do_oop(oop* p) {
@@ -49,6 +52,9 @@ public:
 ZWeakRootsProcessor::ZWeakRootsProcessor(ZWorkers* workers)
   : _workers(workers) {}
 
+/**
+ * 遍历weak类型的oop-storage-set, 如果处于young-mark阶段, 对其中的年轻代对象做一次标记
+ */
 class ZProcessWeakRootsTask : public ZTask {
 private:
   ZRootsIteratorWeakColored _roots_weak_colored;

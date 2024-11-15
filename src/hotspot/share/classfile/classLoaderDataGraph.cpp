@@ -404,8 +404,6 @@ bool ClassLoaderDataGraph::is_valid(ClassLoaderData* loader_data) {
   return false;
 }
 
-// Move class loader data from main list to the unloaded list for unloading
-// and deallocation later.
 bool ClassLoaderDataGraph::do_unloading() {
   assert_locked_or_safepoint(ClassLoaderDataGraph_lock);
 

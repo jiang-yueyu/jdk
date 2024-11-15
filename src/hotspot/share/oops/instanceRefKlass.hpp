@@ -46,7 +46,11 @@ class ClassFileParser;
 // are linked to the static pending_list in class java/lang/ref/Reference,
 // and the pending list lock object in the same class is notified.
 
-
+/**
+ * java.lang.ref.Reference及其子类会特殊处理itable, 从中排除掉referent和discovered两个字段
+ * 因此实例对象访问会分成两个部分, 其他实例字段都当作普通对象处理, 然后再按需访问两个特殊字段
+ * 执行对象字段的遍历后, 会执行引用发现的流程, 如果引用未被发现(相当于目标对象仍然有效), 再去访问referent和discovered两个字段
+ */
 class InstanceRefKlass: public InstanceKlass {
   friend class InstanceKlass;
  public:
@@ -100,6 +104,11 @@ class InstanceRefKlass: public InstanceKlass {
   template <typename T, class OopClosureType, class Contains>
   static void do_discovered(oop obj, OopClosureType* closure, Contains& contains);
 
+  /**
+   * 如果闭包没有提供ReferenceDiscoverer则直接返回false
+   * 如果目标对象非空且没有被标记, 则返回ReferenceDiscoverer的处理结果
+   * 执行完对象字段的遍历后会执行该函数
+   */
   template <typename T, class OopClosureType>
   static bool try_discover(oop obj, ReferenceType type, OopClosureType* closure);
 

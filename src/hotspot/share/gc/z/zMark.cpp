@@ -274,6 +274,9 @@ void ZMark::follow_partial_array(ZMarkStackEntry entry, bool finalizable) {
   follow_array_elements(addr, length, finalizable);
 }
 
+/**
+ * 仅在old-gc阶段会访问到Class/ClassLoader对象
+ */
 template <bool finalizable, ZGenerationIdOptional generation>
 class ZMarkBarrierFollowOopClosure : public OopIterateClosure {
 private:

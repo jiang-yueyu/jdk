@@ -90,6 +90,12 @@ class ClassLoaderDataGraph : public AllStatic {
   static void packages_do(void f(PackageEntry*));
   static void loaded_classes_do_keepalive(KlassClosure* klass_closure);
   static void classes_unloading_do(void f(Klass* const));
+
+  /**
+   * 遍历ClassLoaderData, 如果已经没有被引用, 则执行卸载动作, 并将其转移到卸载列表的头部
+   * Move class loader data from main list to the unloaded list for unloading and deallocation later.
+   * @return 只要有任一类加载器被卸载, 就返回true
+   */
   static bool do_unloading();
 
   static inline bool should_clean_metaspaces_and_reset();

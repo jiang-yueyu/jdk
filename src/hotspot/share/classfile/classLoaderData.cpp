@@ -330,6 +330,15 @@ void ClassLoaderData::demote_strong_roots() {
       // 2. The concurrent object movement properties are satisfied as we store the address
       //    of the new location of the object, if any.
       // 3. The colors if any will be stored as the new good colors.
+
+      // 调用路径:
+      // AccessInternal::OopLoadProxy<oop, IN_NATIVE>(p);
+      // AccessInternal::load<IN_NATIVE | INTERNAL_VALUE_IS_OOP, oop, oop>(p);
+      // AccessInternal::load_reduce_types<IN_NATIVE | INTERNAL_VALUE_IS_OOP, oop>(addr);
+      // PreRuntimeDispatch::load<IN_NATIVE | INTERNAL_VALUE_IS_OOP, oop>(addr);
+      // RuntimeDispatch<IN_NATIVE | INTERNAL_VALUE_IS_OOP, oop, BARRIER_LOAD>::load(addr);
+      // GCBarrierType::oop_load_not_in_heap
+      // 对于zgc, 会调用到ZBarrier::load_barrier_xxx_preloaded
       oop obj = NativeAccess<>::oop_load(p); // Load the strong root
       NativeAccess<>::oop_store(p, obj); // Store the strong non-root
     }

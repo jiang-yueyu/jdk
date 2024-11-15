@@ -63,6 +63,9 @@ public:
 
   bool has_unloaded_classes() const;
 
+  /**
+   * 对cld执行unload, 并将其放到卸载列表的头部
+   */
   void register_unloading_class_loader_data(ClassLoaderData* cld);
   void purge_class_loader_data();
 

@@ -166,7 +166,6 @@ public:
    */
   void select();
 
-  const ZArray<ZPage*>* live_pages() const;
   const ZArray<ZPage*>* selected_pages() const;
   const ZArray<ZPage*>* not_selected_pages() const;
   size_t forwarding_entries() const;

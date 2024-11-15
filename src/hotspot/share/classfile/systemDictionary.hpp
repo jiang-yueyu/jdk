@@ -190,8 +190,12 @@ class SystemDictionary : AllStatic {
 
   // Garbage collection support
 
-  // Unload (that is, break root links to) all unmarked classes and
-  // loaders.  Returns "true" iff something was unloaded.
+  /**
+   * 遍历ClassLoaderData, 如果已经没有被引用, 则执行卸载动作, 并将其转移到卸载列表的头部
+   * 如果任一类加载器被卸载, 则?? TODO ??
+   * Unload (that is, break root links to) all unmarked classes and loaders.  Returns "true" iff something was unloaded.
+   * @return 只要有任一类加载器被卸载, 就返回true
+   */
   static bool do_unloading(GCTimer* gc_timer);
 
   // Printing

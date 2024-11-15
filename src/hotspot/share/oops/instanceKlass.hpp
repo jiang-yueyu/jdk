@@ -132,6 +132,13 @@ class OopMapBlock {
 
 struct JvmtiCachedClassFileData;
 
+/**
+ * 内存布局
+ * ?? TODO ??
+ * vtable -> 虚函数表
+ * itable -> 实例字段
+ * ?? TODO ??
+ */
 class InstanceKlass: public Klass {
   friend class VMStructs;
   friend class JVMCIVMStructs;
@@ -996,6 +1003,9 @@ public:
   template <typename T, class OopClosureType>
   inline void oop_oop_iterate_oop_maps(oop obj, OopClosureType* closure);
 
+  /**
+   * 首先对class对象执行do_klass闭包, 然后遍历对象内的各个实例字段执行do_oop
+   */
   // Iterate over all oop fields and metadata.
   template <typename T, class OopClosureType>
   inline void oop_oop_iterate(oop obj, OopClosureType* closure);

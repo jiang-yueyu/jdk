@@ -67,33 +67,51 @@ static const char* reference_type_name(ReferenceType type) {
   }
 }
 
+/**
+ * @return Reference::referent的二级指针
+ */
 static volatile zpointer* reference_referent_addr(zaddress reference) {
   return (volatile zpointer*)java_lang_ref_Reference::referent_addr_raw(to_oop(reference));
 }
 
+/**
+ * @return Reference::referent的地址
+ */
 static zpointer reference_referent(zaddress reference) {
   return ZBarrier::load_atomic(reference_referent_addr(reference));
 }
 
+/**
+ * @return Reference::discovered的地址
+ */
 static zaddress reference_discovered(zaddress reference) {
   return to_zaddress(java_lang_ref_Reference::discovered(to_oop(reference)));
 }
 
+/**
+ * 直接给Reference::discovered字段赋值
+ */
 static void reference_set_discovered(zaddress reference, zaddress discovered) {
   java_lang_ref_Reference::set_discovered(to_oop(reference), to_oop(discovered));
 }
 
+/**
+ * @return Reference::next的地址
+ */
 static zaddress reference_next(zaddress reference) {
   return to_zaddress(java_lang_ref_Reference::next(to_oop(reference)));
 }
 
 /**
- * 直接给next字段赋值
+ * 直接给Reference::next字段赋值
  */
 static void reference_set_next(zaddress reference, zaddress next) {
   java_lang_ref_Reference::set_next(to_oop(reference), to_oop(next));
 }
 
+/**
+ * 将SoftReference::clock更新为当前时间戳
+ */
 static void soft_reference_update_clock() {
   SuspendibleThreadSetJoiner sts_joiner;
   const jlong now = os::javaTimeNanos() / NANOSECS_PER_MILLISEC;
@@ -436,6 +454,10 @@ void ZReferenceProcessor::collect_statistics() {
   ZDriver::major()->jfr_tracer()->report_gc_reference_stats(stats);
 }
 
+/**
+ * 剥离当前的discovered列表, 将其中需要清理的元素添加到当前的pending列表中,
+ * 循环执行直到discovered为空
+ */
 class ZReferenceProcessorTask : public ZTask {
 private:
   ZReferenceProcessor* const _reference_processor;
@@ -508,6 +530,7 @@ void ZReferenceProcessor::enqueue_references() {
   // Verify references on internal pending list
   verify_pending_references();
 
+  // 这里是交换后将旧列表插入到尾部, 相当于头插到全局列表中
   {
     // Heap_lock protects external pending list
     MonitorLocker ml(Heap_lock);
