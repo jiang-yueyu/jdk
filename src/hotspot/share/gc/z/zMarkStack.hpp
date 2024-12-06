@@ -44,6 +44,9 @@ public:
 
   bool is_empty() const;
 
+  /**
+   * 栈未满时入栈并返回true, 否则返回false
+   */
   bool push(T value);
   bool pop(T& value);
 
@@ -110,17 +113,26 @@ public:
 
 class ZMarkStripeSet {
 private:
+  /**
+   * @param nstripes 0,1,3,7,15其中之一
+   */
   size_t      _nstripes_mask;
   ZMarkStripe _stripes[ZMarkStripesMax];
 
 public:
   explicit ZMarkStripeSet(uintptr_t base);
 
+  /**
+   * @param nstripes 1,2,4,8,16其中之一
+   */
   void set_nstripes(size_t nstripes);
   size_t nstripes() const;
 
   bool is_empty() const;
 
+  /**
+   * 根据地址偏移量计算取到下标
+   */
   size_t stripe_id(const ZMarkStripe* stripe) const;
   ZMarkStripe* stripe_at(size_t index);
 
@@ -129,6 +141,10 @@ public:
    */
   ZMarkStripe* stripe_next(ZMarkStripe* stripe);
   ZMarkStripe* stripe_for_worker(uint nworkers, uint worker_id);
+
+  /**
+   * 将地址值右移21位后, 和_nstripes_mask做与运算, 返回该下标上的条纹
+   */
   ZMarkStripe* stripe_for_addr(uintptr_t addr);
 };
 
@@ -139,6 +155,10 @@ private:
   ZMarkStackMagazine* _magazine;
   ZMarkStack*         _stacks[ZMarkStripesMax];
 
+  /**
+   * 如果_magazine为null则尝试分配一个_magazine出来, 分配失败时返回null
+   * 尝试从_manazine中取出一个stack对象, 失败时将magazine原地转换为stack
+   */
   ZMarkStack* allocate_stack(ZMarkStackAllocator* allocator);
 
   /**
@@ -187,6 +207,10 @@ public:
   ZMarkStack* steal(ZMarkStripeSet* stripes,
                     ZMarkStripe* stripe);
 
+  /**
+   * 如果stripe中的栈存在且未满, 则推入这个栈中并返回true, 此时publish参数并无意义
+   * 否则执行push_slow ?? TODO 做了什么 ??
+   */
   bool push(ZMarkStackAllocator* allocator,
             ZMarkStripeSet* stripes,
             ZMarkStripe* stripe,
@@ -203,6 +227,9 @@ public:
            ZMarkStripe* stripe,
            ZMarkStackEntry& entry);
 
+  /**
+   * @return 发生过转移就会返回true
+   */
   bool flush(ZMarkStackAllocator* allocator,
              ZMarkStripeSet* stripes,
              ZMarkTerminate* terminate);

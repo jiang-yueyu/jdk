@@ -75,6 +75,7 @@ ZMarkStripe* ZMarkStripeSet::stripe_for_worker(uint nworkers, uint worker_id) {
   const size_t mask = Atomic::load(&_nstripes_mask);
   const size_t nstripes = mask + 1;
 
+  // 向下调整为nstripes的整数倍
   const size_t spillover_limit = (nworkers / nstripes) * nstripes;
   size_t index;
 

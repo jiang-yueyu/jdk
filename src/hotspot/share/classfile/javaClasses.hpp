@@ -271,6 +271,9 @@ class java_lang_Class : AllStatic {
                                       Handle protection_domain,
                                       TRAPS) NOT_CDS_JAVA_HEAP_RETURN_(false);
 
+  /**
+   * 设置Class#module字段
+   */
   static void fixup_module_field(Klass* k, Handle module);
 
   // Conversion
@@ -310,6 +313,10 @@ class java_lang_Class : AllStatic {
   static int component_mirror_offset() { return _component_mirror_offset; }
 
   static oop class_loader(oop java_class);
+
+  /**
+   * 设置Class#module字段
+   */
   static void set_module(oop java_class, oop module);
   static oop module(oop java_class);
 

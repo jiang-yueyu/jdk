@@ -181,6 +181,10 @@ private:
   static zaddress mark_finalizable_slow_path(zaddress addr);
   static zaddress mark_finalizable_from_old_slow_path(zaddress addr);
 
+  /**
+   * 如果addr非空, 执行mark<ZMark::Resurrect, ZMark::AnyThread, ZMark::Follow, ZMark::Strong>(addr)
+   * @return 始终返回addr自身
+   */
   static zaddress keep_alive_slow_path(zaddress addr);
   static zaddress heap_store_slow_path(volatile zpointer* p, zaddress addr, zpointer prev, bool heal);
   static zaddress native_store_slow_path(zaddress addr);
@@ -214,10 +218,23 @@ public:
   static void remap_young_relocated(volatile zpointer* p, zpointer o);
 
   // Helpers for marking
+
+  /**
+   * 调用ZGeneration::mark_object_if_active. 如果地址是年轻代, 则finalizable参数必定为ZMark::Strong, 否则传递该参数
+   */
   template <bool resurrect, bool gc_thread, bool follow, bool finalizable>
   static void mark(zaddress addr);
+
+  /**
+   * 传递resurrect gc_thread follow三个参数, 补充参数finalizable=ZMark::Strong调用ZGeneration::mark_object
+   */
   template <bool resurrect, bool gc_thread, bool follow>
   static void mark_young(zaddress addr);
+
+  
+  /**
+   * 如果地址属于年轻代, 传递resurrect gc_thread follow三个参数, 补充参数finalizable=ZMark::Strong调用ZGeneration::mark_object, 否则无操作
+   */
   template <bool resurrect, bool gc_thread, bool follow>
   static void mark_if_young(zaddress addr);
 
@@ -234,6 +251,9 @@ public:
    */
   static zaddress load_barrier_on_oop_field_preloaded(volatile zpointer* p, zpointer o);
 
+  /**
+   * 遍历数组内的元素, 执行load_barrier_on_oop_field
+   */
   static void load_barrier_on_oop_array(volatile zpointer* p, size_t length);
 
   static zaddress keep_alive_load_barrier_on_oop_field_preloaded(volatile zpointer* p, zpointer o);

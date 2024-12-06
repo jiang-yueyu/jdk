@@ -168,6 +168,7 @@ void ZMark::finish_work() {
 }
 
 void ZMark::follow_work_complete() {
+  // ?? TODO 此处没有检查返回值, 是否代表这个阶段一定不会发生上下文的调整 ??
   follow_work(false /* partial */);
 }
 
@@ -472,8 +473,6 @@ void ZMark::mark_and_follow(ZMarkContext* context, ZMarkStackEntry entry) {
   }
 }
 
-// This function returns true if we need to stop working to resize threads or
-// abort marking
 bool ZMark::rebalance_work(ZMarkContext* context) {
   const size_t assumed_nstripes = context->nstripes();
   const size_t nstripes = _stripes.nstripes();
@@ -565,6 +564,10 @@ bool ZMark::try_steal(ZMarkContext* context) {
   return try_steal_local(context) || try_steal_global(context);
 }
 
+/**
+ * 将线程独享的标记栈转移到全局条纹中
+ * ?? TODO 实际的操作似乎是将一个closure对象作用到多个线程上, 这就代表_flushed只返回最后一个线程的转移结果 ??
+ */
 class ZMarkFlushAndFreeStacksClosure : public HandshakeClosure {
 private:
   ZMark* const _mark;
@@ -680,6 +683,8 @@ bool ZMark::follow_work(bool partial) {
       return true;
     }
 
+    // ?? TODO 这个步骤在干嘛 ??
+    // 如果期间产生了新的标记任务, 会导致这个方法返回true
     if (try_proactive_flush()) {
       // Work available
       continue;

@@ -76,6 +76,9 @@ public:
   uintptr_t start() const;
   size_t size() const;
 
+  /**
+   * 将_expanded_recently更新为false并返回先前值
+   */
   bool clear_and_get_expanded_recently();
 
   ZMarkStackMagazine* alloc_magazine();

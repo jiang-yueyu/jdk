@@ -36,6 +36,10 @@ private:
   ZMarkCache                    _cache;
   ZMarkStripe*                  _stripe;
   ZMarkThreadLocalStacks* const _stacks;
+
+  /**
+   * 使用中的条纹数
+   */
   size_t                        _nstripes;
   StringDedup::Requests         _string_dedup_requests;
 

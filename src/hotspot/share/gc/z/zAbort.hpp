@@ -26,6 +26,9 @@
 
 #include "memory/allStatic.hpp"
 
+/**
+ * jvm退出时设置终止标记
+ */
 class ZAbort : public AllStatic {
 private:
   static volatile bool _should_abort;

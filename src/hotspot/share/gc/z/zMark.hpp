@@ -122,15 +122,24 @@ private:
    */
   void mark_and_follow(ZMarkContext* context, ZMarkStackEntry entry);
 
+  /**
+   * 如果使用中的条纹数(当前上下文的条纹数)不等于总条纹数, 则将前者调整为总条纹数, 否则尝试对条纹进行扩容
+   * 如果当前上下文的条纹不是当前线程的工作条纹, 则将前者调整为后者并将线程独享的标记栈转移到全局标记器条纹_stripes中; 否则当终止器_terminate尚未饱和并将线程独享的标记栈转移到全局标记器条纹_stripes中
+   * This function returns true if we need to stop working to resize threads or abort marking
+   * @return 如果jvm处于退出阶段, 或工作线程管理器接收到调整工作线程数的请求, 则返回true
+   */
   bool rebalance_work(ZMarkContext* context);
 
   /**
-   * 执行出栈和标记, 直到栈被清空
+   * 从栈中取出一个entry, 然后对其执行标记, 如果栈空则返回true
+   * 每执行32次标记后, 尝试重新调整上下文, 如果jvm处于退出阶段或需要重新调整工作线程数, 则返回false
+   * 反复执行上述操作直到栈被清空
+   * @return true代表栈被清空, false代表上下文已经被调整
    */
   bool drain(ZMarkContext* context);
 
   /**
-   * 遍历当前标记任务的_stripes, 将标记栈转移到工作位置上
+   * 遍历当前标记任务的_stripes, 将标记栈转移到标记上下文中
    */
   bool try_steal_local(ZMarkContext* context);
   bool try_steal_global(ZMarkContext* context);
@@ -139,8 +148,24 @@ private:
    * 将标记任务转移到标记栈中 ?? TODO 看看stripe有什么作用 ??
    */
   bool try_steal(ZMarkContext* context);
+
+  /**
+   * 遍历工作线程, 将线程独享的标记栈转移到全局条纹中
+   * ?? TODO 返回值代表的是全部工作线程的状态还是迭代器最后一个工作线程的状态 ??
+   * @return 任务尚未执行完毕时返回true
+   */
   bool flush();
+
+  /**
+   * 如果当前线程的workerid非0, 或该方法调用次数达到10次则立即返回false
+   * 否则遍历工作线程, 将线程独享的标记栈转移到全局条纹中
+   * @return 仍存在标记任务时返回true
+   */
   bool try_proactive_flush();
+
+  /**
+   * @return true代表尚未完全终止, 还需要继续标记
+   */
   bool try_terminate(ZMarkContext* context);
   void leave();
   bool try_end();
@@ -151,7 +176,7 @@ private:
    * 清空当前标记栈中的任务, 然后将stripe中的任务转移到标记栈中, 循环执行直到任务清空
    * Returning true means marking finished successfully after marking as far as it could.
    * Returning false means that marking finished unsuccessfully due to abort or resizing.
-   * @param partial 如果为true, 则任务转移完成后立即返回, 不会执行后续的终止流程
+   * @param partial 如果为true, 则任务转移完成后立即返回, 不会执行后续的终止流程, 否则在清空栈后还会尝试终止标记任务
    * @return true代表成功完成所有标记, false代表因为终止或调整工作线程数量而导致失败
    */
   bool follow_work(bool partial);
@@ -195,12 +220,14 @@ public:
 
   /**
    * 对当前线程调用flush_and_free(Thread*)
+   * 将线程独享的标记栈转移到全局标记器条纹_stripes中
+   * 如果当前线程是java线程, 还会?? TODO ??(启用诊断参数时才会进入到该分支, 先不管)
    */
   void flush_and_free();
 
   /**
    * 将线程独享的标记栈转移到全局标记器条纹_stripes中.
-   * 如果当前线程是java线程, 还会?? TODO ??. 启用诊断参数时才会进入到该分支, 先不管
+   * 如果线程是java线程, 还会?? TODO ??(启用诊断参数时才会进入到该分支, 先不管)
    */
   bool flush_and_free(Thread* thread);
 
