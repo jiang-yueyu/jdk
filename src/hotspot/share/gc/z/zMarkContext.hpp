@@ -31,6 +31,9 @@
 class ZMarkStripe;
 class ZMarkThreadLocalStacks;
 
+/**
+ * context是gc工作线程的上下文数据
+ */
 class ZMarkContext : public StackObj {
 private:
   ZMarkCache                    _cache;

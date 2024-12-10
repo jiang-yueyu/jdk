@@ -233,6 +233,9 @@ static void log_handshake_info(jlong start_time_ns, const char* name, int target
   }
 }
 
+/**
+ * 遍历所有java线程, 向handshake_state中注册回调函数, 并等待该回调函数被所有java线程执行完毕
+ */
 class VM_HandshakeAllThreads: public VM_Operation {
   HandshakeOperation* const _op;
  public:

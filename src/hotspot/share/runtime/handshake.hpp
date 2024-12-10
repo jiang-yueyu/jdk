@@ -67,6 +67,9 @@ class AsyncHandshakeClosure : public HandshakeClosure {
 class Handshake : public AllStatic {
  public:
   // Execution of handshake operation
+  /**
+   * 遍历所有java线程, 向handshake_state中注册回调函数, 并等待该回调函数被所有java线程执行完毕
+   */
   static void execute(HandshakeClosure*       hs_cl);
   // This version of execute() relies on a ThreadListHandle somewhere in
   // the caller's context to protect target (and we sanity check for that).
