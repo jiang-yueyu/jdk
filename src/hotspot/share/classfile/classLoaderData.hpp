@@ -243,7 +243,9 @@ private:
   Dictionary* create_dictionary();
 
   /**
-   * 在引用计数即将清零的时候调用. 让gcroot对象通过读屏障, 此时如果没有被引用就会被置空
+   * 在引用计数即将清零的时候调用. 让gcroot对象通过读屏障
+   * ?? TODO 类卸载器并不在意类加载器里面的根节点是否还有引用, 这一步是否还有必要 ??
+   * ?? TODO 读写屏障具体在做什么 ??
    */
   void demote_strong_roots();
 

@@ -103,6 +103,9 @@ protected:
    */
   void flip_age_pages(const ZRelocationSetSelector* selector);
 
+  /**
+   * 清理标记栈的内存空间, 更新统计数据
+   */
   void mark_free();
 
   /**
@@ -216,6 +219,13 @@ public:
   void synchronize_relocation();
   void desynchronize_relocation();
   bool is_relocate_queue_active() const;
+
+  /**
+   * 1. 如果地址没有对应的转发器, 则立即返回原始地址
+   * 2. 在转发器上执行一次地址查找, 如果能查到值代表对象已经被转移, 直接返回转移后的地址
+   * 3. 如果转发器仍然有效, 且目标页表能够分配出相同尺寸的对象, 则直接把对象数据拷贝到新的对象地址上, 然后把新地址插入到转发器, 此时插入失败代表其他线程抢先完成了转移任务, 此时回滚内存分配, 并返回其他线程的转移结果
+   * 4. 走到这一步代表转发表已经失效, 或者目标页表内存不足, 此时会插入到任务队列中, concurrent_relocate阶段会处理这部分任务
+   */
   zaddress relocate_or_remap_object(zaddress_unsafe addr);
   zaddress remap_object(zaddress_unsafe addr);
 
@@ -286,7 +296,10 @@ private:
   void mark_follow();
 
   /**
-   * 如果标记任务已经执行完毕, 状态流转到MarkComplete
+   * 1. 如果终止器被重新激活, 或者非java线程中仍存在标记任务, 则返回false
+   * 2. 更新相位至Phase::MarkComplete, 更新统计值
+   * 3. JvmtiTagMap ?? TODO 具体做了什么 ??
+   * 4. 返回true
    */
   bool mark_end();
 
@@ -328,7 +341,10 @@ private:
   void concurrent_mark();
 
   /**
-   * 标记任务执行完毕后将状态流转到MarkComplete
+   * 1. 如果终止器被重新激活, 或者非java线程中仍存在标记任务, 则返回false
+   * 2. 更新相位至Phase::MarkComplete, 更新统计值
+   * 3. JvmtiTagMap ?? TODO 具体做了什么 ??
+   * 4. 返回true
    */
   bool pause_mark_end();
 
@@ -338,7 +354,7 @@ private:
   void concurrent_mark_continue();
 
   /**
-   * 执行内存清理, 回收掉标记容器所需的内存
+   * 清理标记栈的内存空间, 更新统计数据
    */
   void concurrent_mark_free();
 
@@ -444,6 +460,10 @@ private:
   ZWeakRootsProcessor _weak_roots_processor;
   ZUnload             _unload;
   uint                _total_collections_at_start;
+
+  /**
+   * relocate_start发生时的年轻代年龄
+   */
   uint32_t            _young_seqnum_at_reloc_start;
   ZOldTracer          _jfr_tracer;
 
@@ -451,10 +471,50 @@ private:
   void flip_relocate_start();
 
   void mark_start();
+
+  /**
+   * 遍历oop-storage-set & java线程 & 本地方法区的强根, 将根节点标记为mark_good
+   * 完成后将工作线程独享的标记栈转移到全局条纹中
+   */
   void mark_roots();
+
+  /**
+   * 完成标记任务并尝试终止标记器的运行, 结束后将young old两个代的线程独享标记栈转移到全局条纹中
+   */
   void mark_follow();
+
+  /**
+   * 1. 如果终止器被重新激活, 或者非java线程中仍存在标记任务, 则返回false
+   * 2. 更新相位至Phase::MarkComplete, 更新统计值
+   * 3. 禁用引用复活
+   * 4. 准备类卸载 ?? TODO 具体做了什么 ??
+   * 5. JvmtiTagMap ?? TODO 具体做了什么 ??
+   * 6. CodeCache ?? TODO 具体做了什么 ??
+   * 7. 返回true
+   */
   bool mark_end();
+
+  /**
+   * 1. 将引用处理器中已发现的待清理引用添加到pending列表中
+   * 2. 遍历weak类型的oop-storage-set, 如果处于young-mark阶段, 对其中的年轻代对象做一次标记
+   * 3. 执行类卸载
+   * 4. ?? TODO 让所有java线程进入到特定状态 ??
+   * 5. ?? TODO 让所有vm线程进入到特定状态 ??
+   * 6. 恢复引用复活机制
+   * 7. 清理被卸载的类加载器对应的本地方法区
+   * 8. 将ReferenceProcessor的待清理列表转移到全局列表上, 等待ReferenceHandler线程做最终处理
+   * 9. 给ClassLoader设置标记 ?? TODO ??
+   */
   void process_non_strong_references();
+
+  /**
+   * 1. 调整元空间的尺寸
+   * 2. 切换染色
+   * 3. 相位更新至Phase::Relocate
+   * 4. 更新统计值
+   * 5. 记录此时的年轻代年龄
+   * 6. 启用转移队列
+   */
   void relocate_start();
 
   /**
@@ -482,13 +542,58 @@ private:
    * 7. ?? TODO 深坑, 放到后面看 ??
    */
   void relocate();
+
+  /**
+   * 遍历strong weak两个oop-storage-set和ClassLoaderDataGraph, 对每个gcroot执行一次转移并染色为load_good
+   * 然后?? TODO remembered深坑 ??
+   * 会同时利用young old两个代的工作线程执行任务 ?? TODO 待确认 ??
+   */
   void remap_young_roots();
 
+  /**
+   * 1. 遍历oop-storage-set & java线程 & 本地方法区的强根, 将根节点标记为mark_good, 完成后将工作线程独享的标记栈转移到全局条纹中
+   * 2. 完成标记任务并尝试终止标记器的运行, 结束后将young old两个代的线程独享标记栈转移到全局条纹中
+   */
   void concurrent_mark();
+
+ /**
+  * 1. 如果终止器被重新激活, 或者非java线程中仍存在标记任务, 则返回false
+  * 2. 更新相位至Phase::MarkComplete, 更新统计值
+  * 3. 禁用引用复活
+  * 4. 准备类卸载 ?? TODO 具体做了什么 ??
+  * 5. JvmtiTagMap ?? TODO 具体做了什么 ??
+  * 6. CodeCache ?? TODO 具体做了什么 ??
+  * 7. 返回true
+  */
   bool pause_mark_end();
+
+  /**
+   * 完成标记任务并尝试终止标记器的运行, 结束后将young old两个代的线程独享标记栈转移到全局条纹中
+   */
   void concurrent_mark_continue();
+  
+  /**
+   * 清理标记栈的内存空间, 更新统计数据
+   */
   void concurrent_mark_free();
+
+  /**
+   * 1. 将引用处理器中已发现的待清理引用添加到pending列表中
+   * 2. 遍历weak类型的oop-storage-set, 如果处于young-mark阶段, 对其中的年轻代对象做一次标记
+   * 3. 执行类卸载
+   * 4. ?? TODO 让所有java线程进入到特定状态 ??
+   * 5. ?? TODO 让所有vm线程进入到特定状态 ??
+   * 6. 恢复引用复活机制
+   * 7. 清理被卸载的类加载器对应的本地方法区
+   * 8. 将ReferenceProcessor的待清理列表转移到全局列表上, 等待ReferenceHandler线程做最终处理
+   * 9. 给ClassLoader设置标记 ?? TODO ??
+   */
   void concurrent_process_non_strong_references();
+
+  /**
+   * 1. 遍历_relocation_set, 将所有的元素从_forwarding_table中移除
+   * 2. 重置掉所有的转发表, 然后销毁掉相关的页表对象(仅销毁对象并清空容器, 但不回收页表内存)
+   */
   void concurrent_reset_relocation_set();
   void pause_verify();
 
@@ -511,8 +616,48 @@ private:
    * 7. 更新统计值
    */
   void concurrent_select_relocation_set();
+
+  /**
+   * 1. 调整元空间的尺寸
+   * 2. 切换染色
+   * 3. 相位更新至Phase::Relocate
+   * 4. 更新统计值
+   * 5. 记录此时的年轻代年龄
+   * 6. 启用转移队列
+   */
   void pause_relocate_start();
+
+  /**
+   * 首先执行转移队列里的转发表
+   * 然后尝试对转移集里的转发表加原子锁, 加锁成功后执行转发任务
+   * 转移的执行过程如下
+   * 1. 遍历页表上的对象, 对每个对象执行转移
+   * - 首先尝试在目标页表上分配对象并转移
+   * - 如果失败则分配一个页表当作目标页表
+   * - 再失败时执行原地转移, 并将当前页表当作目标页表
+   * 2. 修改被回收的字节数
+   * 3. 对于原地转移的情况:
+   * - 如果不能晋升到老年代, 将页表的livemap的年龄置零
+   * - 释放掉执行任务的线程标记
+   * 4. 如果转移的起始页表已经是老年代 ?? TODO 涉及到remembered_set, 深坑 ??
+   * 5. 对于原地转移的情况:
+   * - 等待转发表的引用计数归零
+   * - 如果是老年代到老年代的转移 ?? TODO 涉及到remembered_set, 深坑 ??
+   * - 获取到转移目标年龄的转移目标页表, 将它作为分配器的共享页表
+   *    否则:
+   * - 等待转发表的引用计数归零
+   * - ?? TODO 涉及到remembered_set, 深坑 ??
+   * - 释放页表
+   * 6. 设置转发表上的完成标记
+   * 7. ?? TODO 深坑, 放到后面看 ??
+   */
   void concurrent_relocate();
+
+  /**
+   * 遍历strong weak两个oop-storage-set和ClassLoaderDataGraph, 对每个gcroot执行一次转移并染色为load_good
+   * 然后?? TODO remembered深坑 ??
+   * 会同时利用young old两个代的工作线程执行任务 ?? TODO 待确认 ??
+   */
   void concurrent_remap_young_roots();
 
 public:

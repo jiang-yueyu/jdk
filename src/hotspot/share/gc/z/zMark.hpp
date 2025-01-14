@@ -84,12 +84,13 @@ private:
   void push_partial_array(zpointer* addr, size_t length, bool finalizable);
 
   /**
-   * 对数组元素执行mark_barrier
+   * 对数组中的各个元素执行屏障逻辑, 如果元素是年轻代对象则染色为store_good, 当finalizable为true时染色为finalizable_good, 否则染色为mark_good
    */
   void follow_array_elements_small(zpointer* addr, size_t length, bool finalizable);
 
   /**
    * 对于长数组, 将它切割成长度为512的若干个段, 头部的段当作一个普通短数组处理, 其余的段推入标记栈中
+   * 对数组中头部段的各个元素执行屏障逻辑, 如果元素是年轻代对象则染色为store_good, 当finalizable为true时染色为finalizable_good, 否则染色为mark_good
    */
   void follow_array_elements_large(zpointer* addr, size_t length, bool finalizable);
 
@@ -131,7 +132,7 @@ private:
   bool rebalance_work(ZMarkContext* context);
 
   /**
-   * 从栈中取出一个entry, 然后对其执行标记, 如果栈空则返回true
+   * 从当前工作线程及工作条纹的标记栈中取出一个entry, 然后对其执行标记, 如果栈空则返回true
    * 每执行32次标记后, 尝试重新调整上下文, 如果jvm处于退出阶段或需要重新调整工作线程数, 则返回false
    * 反复执行上述操作直到栈被清空
    * @return true代表栈被清空, false代表上下文已经被调整
@@ -139,36 +140,52 @@ private:
   bool drain(ZMarkContext* context);
 
   /**
-   * 遍历当前标记任务的_stripes, 将标记栈转移到标记上下文中
+   * 从当前线程的标记栈集合中取一个, 转移到工作条纹对应的位置上
    */
   bool try_steal_local(ZMarkContext* context);
+
+  /**
+   * 从全局条纹集的栈列表中取出一个栈, 转移到工作条纹对应的位置上
+   */
   bool try_steal_global(ZMarkContext* context);
 
   /**
-   * 将标记任务转移到标记栈中 ?? TODO 看看stripe有什么作用 ??
+   * 将一个标记栈转移到工作条纹对应的位置上.
+   * 优先从当前线程的栈集合中转移, 再从全局条纹的栈列表中转移
+   * @return 转移成功时返回true
    */
   bool try_steal(ZMarkContext* context);
 
   /**
    * 遍历java线程, 将线程独享的标记栈转移到全局条纹中
    * java线程在运行的过程中执行mark_barrier, 生成标记任务存入当前线程的栈中, 执行flush后会转移到全局条纹中, 接下来由gc工作线程处理
-   * ?? TODO 返回值代表的是全部工作线程的状态还是迭代器最后一个工作线程的状态 ??
-   * @return 任务尚未执行完毕时返回true
+   * @return 任一java线程转移过标记栈, 或全局条纹仍存在待标记数据时返回true, 此时代表标记尚未完成
    */
   bool flush();
 
   /**
    * 如果当前线程的workerid非0, 或该方法调用次数达到10次则立即返回false
-   * 否则遍历工作线程, 将线程独享的标记栈转移到全局条纹中
+   * 否则遍历java线程, 将线程独享的标记栈转移到全局条纹中
+   * ?? TODO 立即返回的限定条件有什么作用 ??
    * @return 仍存在标记任务时返回true
    */
   bool try_proactive_flush();
 
   /**
-   * @return true代表尚未完全终止, 还需要继续标记
+   * 终止当前线程的工作, 如果此时所有工作线程都已终止则返回true
+   * 如果全局条纹集中的条纹数等于context使用中的条纹数, 则尝试将全局条纹集的条纹数减半 ?? TODO 这是在干嘛 ??
+   * 进入等待状态
+   * 被唤醒后, 再次检查所有的工作线程是否都已终止, 如果都终止则返回true
+   * 否则将当前线程恢复到工作状态, 并返回false
+   * @return true代表所有标记任务都执行完毕
    */
   bool try_terminate(ZMarkContext* context);
   void leave();
+
+  /**
+   * 如果终止器已经被重新激活, 则返回false
+   * 然后遍历所有非java线程, 将线程独享的标记栈转移到全局条纹中, 结束后如果仍存在标记任务则返回false, 否则返回true
+   */
   bool try_end();
 
   ZWorkers* workers() const;
@@ -191,6 +208,8 @@ public:
   bool is_initialized() const;
 
   /**
+   * 如果地址尚未被标记过, 则构造标记任务并推入当前线程的标记栈中
+   * @tparam gc_thread 为true时首先对地址做一次标记(在页表里设置标记位)
    * @tparam follow 可见地址标记的时候follow都是true
    */
   template <bool resurrect, bool gc_thread, bool follow, bool finalizable>
@@ -210,13 +229,27 @@ public:
    * 此处的标记会将指针颜色调整为ZPointerLoadGoodMask | ZPointerMarkedYoung | ZPointerRememberedMask, 并将对象推入到标记栈中
    */
   void mark_young_roots();
+
+  /**
+   * 遍历oop-storage-set & java线程 & 本地方法区的强根, 将根节点标记为mark_good
+   * 完成后将工作线程独享的标记栈转移到全局条纹中
+   */
   void mark_old_roots();
+
+  /**
+   * 完成标记任务并尝试终止标记器的运行, 结束后将young old两个代的线程独享标记栈转移到全局条纹中
+   */
   void mark_follow();
 
   /**
-   * 如果标记任务执行完毕, 更新统计值并返回true
+   * 如果终止器被重新激活, 或者非java线程中仍存在标记任务, 则返回false,
+   * 否则更新计数并返回true
    */
   bool end();
+
+  /**
+   * 清理标记栈的内存空间, 更新统计数据
+   */
   void free();
 
   /**

@@ -36,6 +36,10 @@ private:
 public:
   static bool is_blocked();
   static void block();
+
+  /**
+   * 在ZGenerationOld::process_non_strong_references阶段被调用, 此时无效的引用已经被剥离出来, 类加载器本身的卸载已经完成
+   */
   static void unblock();
 };
 

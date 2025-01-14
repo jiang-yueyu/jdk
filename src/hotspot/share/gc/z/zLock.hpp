@@ -62,6 +62,10 @@ public:
   void unlock();
 
   bool wait(uint64_t millis = 0);
+
+  /**
+   * 唤醒一个线程
+   */
   void notify();
   void notify_all();
 };

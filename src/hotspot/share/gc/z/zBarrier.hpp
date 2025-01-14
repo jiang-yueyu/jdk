@@ -92,20 +92,35 @@ private:
   static void self_heal(ZBarrierFastPath fast_path, volatile zpointer* p, zpointer ptr, zpointer heal_ptr, bool allow_null);
 
   /**
+   * 1. 如果通过fast_path判断出已经通过屏障, 则立即返回去除染色后的原始地址
+   * 2. 然后判断指针是否是null或load_good, 不是的话执行转移
+   * 3. 对第2步返回的地址执行slow_path, 得到执行屏障逻辑后的地址
+   * 4. 如果指针非null, 将第3步得到的地址染色后更新回二级指针上
+   * 5. 返回第3步得到的地址
    * @param fast_path 判断一个指针是否已经通过屏障
    * @param slow_path 执行屏障逻辑
    * @param color 将通过屏障的地址值和旧指针的颜色, 染色生成新指针
-   * @param p 原始二级指针
+   * @param p 原始二级指针, 会将更新后的地址值染色成指针, 并赋值给二级指针
    * @param o 二级指针指向的java对象
+   * @return 如果根据fast_path判断出已通过屏障, 则返回原始地址; 否则返回执行屏障逻辑后的地址
    */
   template <typename ZBarrierSlowPath>
   static zaddress barrier(ZBarrierFastPath fast_path, ZBarrierSlowPath slow_path, ZBarrierColor color, volatile zpointer* p, zpointer o, bool allow_null = false);
 
   /**
-   * 将指针转换到最新的地址, 期间会执行必要的转移动作. null -> null
+   * 1. 如果指针是null则返回null
+   * 2. 如果指针已经是load_good, 则返回去除染色后的原始地址
+   * 3. 尝试执行对象转移, 返回转移后的地址
    */
   static zaddress make_load_good(zpointer ptr);
   static zaddress make_load_good_no_relocate(zpointer ptr);
+
+  /**
+   * 1. 如果地址没有对应的转发器, 则立即返回原始地址
+   * 2. 在转发器上执行一次地址查找, 如果能查到值代表对象已经被转移, 直接返回转移后的地址
+   * 3. 如果转发器仍然有效, 且目标页表能够分配出相同尺寸的对象, 则直接把对象数据拷贝到新的对象地址上, 然后把新地址插入到转发器, 此时插入失败代表其他线程抢先完成了转移任务, 此时回滚内存分配, 并返回其他线程的转移结果
+   * 4. 走到这一步代表转发表已经失效, 或者目标页表内存不足, 此时会插入到任务队列中, concurrent_relocate阶段会处理这部分任务
+   */
   static zaddress relocate_or_remap(zaddress_unsafe addr, ZGeneration* generation);
   static zaddress remap(zaddress_unsafe addr, ZGeneration* generation);
   static void remember(volatile zpointer* p);
@@ -287,8 +302,20 @@ public:
   static bool clean_barrier_on_final_oop_field(volatile zpointer* p);
 
   // Mark barrier
+
+  /**
+   * 更新为store_good
+   */
   static void mark_barrier_on_young_oop_field(volatile zpointer* p);
+
+  /**
+   * 如果finalizable为true则更新为finalizable_good, 否则更新为mark_good
+   */
   static void mark_barrier_on_old_oop_field(volatile zpointer* p, bool finalizable);
+
+  /**
+   * 如果finalizable为true则更新为finalizable_good, 否则更新为mark_good
+   */
   static void mark_barrier_on_oop_field(volatile zpointer* p, bool finalizable);
 
   /**

@@ -691,6 +691,12 @@ void ZGenerationYoung::concurrent_mark() {
   mark_follow();
 }
 
+/**
+ * 1. 如果终止器被重新激活, 或者非java线程中仍存在标记任务, 则返回false
+ * 2. 更新相位至Phase::MarkComplete, 更新统计值
+ * 3. JvmtiTagMap ?? TODO 具体做了什么 ??
+ * 4. 返回true
+ */
 class VM_ZMarkEndYoung : public VM_ZYoungOperation {
 public:
   virtual VMOp_Type type() const {
@@ -1113,6 +1119,15 @@ void ZGenerationOld::concurrent_mark() {
   ZBreakpoint::at_before_marking_completed();
 }
 
+/**
+  * 1. 如果终止器被重新激活, 或者非java线程中仍存在标记任务, 则返回false
+  * 2. 更新相位至Phase::MarkComplete, 更新统计值
+  * 3. 禁用引用复活
+  * 4. 准备类卸载 ?? TODO 具体做了什么 ??
+  * 5. JvmtiTagMap ?? TODO 具体做了什么 ??
+  * 6. CodeCache ?? TODO 具体做了什么 ??
+  * 7. 返回true
+  */
 class VM_ZMarkEndOld : public VM_ZOperation {
 public:
   VM_ZMarkEndOld()
@@ -1194,6 +1209,14 @@ void ZGenerationOld::concurrent_select_relocation_set() {
   select_relocation_set(_id, false /* promote_all */);
 }
 
+/**
+ * 1. 调整元空间的尺寸
+ * 2. 切换染色
+ * 3. 相位更新至Phase::Relocate
+ * 4. 更新统计值
+ * 5. 记录此时的年轻代年龄
+ * 6. 启用转移队列
+ */
 class VM_ZRelocateStartOld : public VM_ZOperation {
 public:
   VM_ZRelocateStartOld()
@@ -1323,6 +1346,9 @@ bool ZGenerationOld::uses_clear_all_soft_reference_policy() const {
   return _reference_processor.uses_clear_all_soft_reference_policy();
 }
 
+/**
+ * 什么也不做
+ */
 class ZRendezvousHandshakeClosure : public HandshakeClosure {
 public:
   ZRendezvousHandshakeClosure()
@@ -1355,11 +1381,6 @@ class ZRendezvousGCThreads: public VM_Operation {
   };
 };
 
-/**
- * 1. 将引用处理器中已发现的待清理引用添加到pending列表中
- * 2. 遍历weak类型的oop-storage-set, 如果处于young-mark阶段, 对其中的年轻代对象做一次标记
- * 3. ?? TODO 类卸载 ??
- */
 void ZGenerationOld::process_non_strong_references() {
   // Process Soft/Weak/Final/PhantomReferences
   _reference_processor.process_references();
@@ -1383,6 +1404,7 @@ void ZGenerationOld::process_non_strong_references() {
   // this point the mutator could see the unblocked state and pass
   // this invalid oop through the normal barrier path, which would
   // incorrectly try to mark the oop.
+  // ?? TODO 这个回调函数什么也不做, 似乎只是保证所有的java线程都走到一个特定的状态上 ??
   ZRendezvousHandshakeClosure cl;
   Handshake::execute(&cl);
 
@@ -1439,6 +1461,9 @@ void ZGenerationOld::relocate() {
   stat_heap()->at_relocate_end(_page_allocator->stats(this), should_record_stats());
 }
 
+/**
+ * 让指针通过读屏障, 执行转移动作并染色为load_good
+ */
 class ZRemapOopClosure : public OopClosure {
 public:
   virtual void do_oop(oop* p) {
@@ -1486,6 +1511,10 @@ public:
 
 typedef ClaimingCLDToOopClosure<ClassLoaderData::_claim_none> ZRemapCLDClosure;
 
+/**
+ * 遍历strong weak两个oop-storage-set和ClassLoaderDataGraph中的强+弱根, 对每个gcroot执行一次转移并染色为load_good
+ * 然后?? TODO remembered深坑 ??
+ */
 class ZRemapYoungRootsTask : public ZTask {
 private:
   ZGenerationPagesParallelIterator _old_pages_parallel_iterator;
@@ -1493,6 +1522,9 @@ private:
   ZRootsIteratorAllColored         _roots_colored;
   ZRootsIteratorAllUncolored       _roots_uncolored;
 
+  /**
+   * 让指针通过读屏障, 执行转移动作并染色为load_good
+   */
   ZRemapOopClosure                 _cl_colored;
   ZRemapCLDClosure                 _cld_cl;
 

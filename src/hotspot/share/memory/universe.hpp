@@ -109,7 +109,10 @@ class Universe: AllStatic {
   static OopHandle _msg_metaspace;
   static OopHandle _msg_class_metaspace;
 
-  // References waiting to be transferred to the ReferenceHandler
+  /**
+   * 全局的待清理引用列表, 这个列表最终会被转移给ReferenceHandler线程, 由这个线程执行最终处理
+   * References waiting to be transferred to the ReferenceHandler
+   */
   static OopHandle    _reference_pending_list;
 
   // The particular choice of collected heap.

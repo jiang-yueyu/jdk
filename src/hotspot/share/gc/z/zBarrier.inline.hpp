@@ -320,6 +320,11 @@ inline zaddress ZBarrier::make_load_good_no_relocate(zpointer o) {
 }
 
 /**
+ * 1. 如果通过fast_path判断出已经通过屏障, 则立即返回去除染色后的原始地址
+ * 2. 然后判断指针是否是null或load_good, 不是的话执行转移
+ * 3. 对第2步返回的地址执行slow_path, 得到执行屏障逻辑后的地址
+ * 4. 如果指针非null, 将第3步得到的地址染色后更新回二级指针上
+ * 5. 返回第3步得到的地址
  * @param fast_path 判断一个指针是否已经通过屏障
  * @param slow_path 执行屏障逻辑
  * @param color 将通过屏障的地址值和旧指针的颜色, 染色生成新指针
@@ -600,9 +605,6 @@ inline bool ZBarrier::clean_barrier_on_final_oop_field(volatile zpointer* p) {
   return is_null(blocking_load_barrier_on_weak_slow_path(p, addr));
 }
 
-//
-// Mark barrier
-//
 inline void ZBarrier::mark_barrier_on_oop_field(volatile zpointer* p, bool finalizable) {
   const zpointer o = load_atomic(p);
 
@@ -754,6 +756,9 @@ inline void ZBarrier::mark_and_remember(volatile zpointer* p, zaddress addr) {
   remember(p);
 }
 
+/**
+ * 调用ZGeneration::mark_object_if_active. 如果地址是年轻代, 则finalizable参数必定为ZMark::Strong, 否则传递该参数
+ */
 template <bool resurrect, bool gc_thread, bool follow, bool finalizable>
 inline void ZBarrier::mark(zaddress addr) {
   assert_is_oop(addr);

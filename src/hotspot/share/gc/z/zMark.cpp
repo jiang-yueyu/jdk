@@ -201,6 +201,10 @@ void ZMark::push_partial_array(zpointer* addr, size_t length, bool finalizable) 
   stacks->push(&_allocator, &_stripes, stripe, &_terminate, entry, false /* publish */);
 }
 
+/**
+ * 对数组中的各个元素执行屏障逻辑, 如果元素是年轻代对象则染色为store_good, 当finalizable为true时染色为finalizable_good, 否则染色为mark_good
+ * ?? TODO 三个颜色有什么含义 ??
+ */
 static void mark_barrier_on_oop_array(volatile zpointer* p, size_t length, bool finalizable, bool young) {
   for (volatile const zpointer* const end = p + length; p < end; p++) {
     if (young) {
@@ -565,8 +569,7 @@ bool ZMark::try_steal(ZMarkContext* context) {
 }
 
 /**
- * 将线程独享的标记栈转移到全局条纹中
- * ?? TODO 实际的操作似乎是将一个closure对象作用到多个线程上, 这就代表_flushed只返回最后一个线程的转移结果 ??
+ * 将线程独享的标记栈转移到全局条纹中, 如果任一线程转移过数据, 则flushed()返回true
  */
 class ZMarkFlushAndFreeStacksClosure : public HandshakeClosure {
 private:
@@ -665,6 +668,8 @@ void ZMark::leave() {
 
 bool ZMark::follow_work(bool partial) {
   ZMarkStripe* const stripe = _stripes.stripe_for_worker(_nworkers, WorkerThread::worker_id());
+
+  // 当前工作线程的标记栈
   ZMarkThreadLocalStacks* const stacks = ZThreadLocalData::mark_stacks(Thread::current(), _generation->id());
   ZMarkContext context(ZMarkStripesMax, stripe, stacks);
 
@@ -683,8 +688,7 @@ bool ZMark::follow_work(bool partial) {
       return true;
     }
 
-    // ?? TODO 这个步骤在干嘛 ??
-    // 如果期间产生了新的标记任务, 会导致这个方法返回true
+    // 将java线程中产生的标记任务转移到全局条纹中
     if (try_proactive_flush()) {
       // Work available
       continue;
@@ -697,6 +701,9 @@ bool ZMark::follow_work(bool partial) {
   }
 }
 
+/**
+ * 染色为mark_good
+ */
 class ZMarkOopClosure : public OopClosure {
 public:
   virtual void do_oop(oop* p) {
@@ -839,6 +846,10 @@ public:
 
 typedef ClaimingCLDToOopClosure<ClassLoaderData::_claim_strong> ZMarkOldCLDClosure;
 
+/**
+ * 遍历oop-storage-set & java线程 & 本地方法区的强根, 将根节点标记为mark_good
+ * 完成后将当前线程独享的标记栈转移到全局条纹中
+ */
 class ZMarkOldRootsTask : public ZTask {
 private:
   ZMark* const                  _mark;
@@ -967,6 +978,9 @@ public:
   }
 };
 
+/**
+ * 完成标记任务并尝试终止标记器的运行, 结束后将young old两个代的线程独享标记栈转移到全局条纹中
+ */
 class ZMarkTask : public ZRestartableTask {
 private:
   ZMark* const _mark;
@@ -1026,6 +1040,10 @@ void ZMark::mark_follow() {
   }
 }
 
+/**
+ * 如果终止器已经被重新激活, 则返回false ?? TODO 什么时候会被重新激活 ??
+ * 然后遍历所有非java线程, 将线程独享的标记栈转移到全局条纹中, 结束后如果仍存在标记任务则返回false, 否则返回true ?? TODO 为什么非java线程不需要再转移 ??
+ */
 bool ZMark::try_end() {
   if (_terminate.resurrected()) {
     // An oop was resurrected after concurrent termination.

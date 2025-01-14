@@ -77,6 +77,9 @@ public:
   void report_num_dead();
 };
 
+/**
+ * ClassLoaderDataGraph中的强根
+ */
 class ZCLDsIteratorStrong {
 private:
   const ZGenerationIdOptional _generation;
@@ -88,6 +91,9 @@ public:
   void apply(CLDClosure* cl);
 };
 
+/**
+ * ClassLoaderDataGraph中的弱根
+ */
 class ZCLDsIteratorWeak {
 private:
   const ZGenerationIdOptional _generation;
@@ -162,6 +168,9 @@ public:
     : ZNMethodsIteratorImpl(generation, true /* enabled */, true /* secondary */) {}
 };
 
+/**
+ * java线程和本地方法区的强根
+ */
 class ZRootsIteratorStrongUncolored {
 private:
   ZParallelApply<ZJavaThreadsIterator>    _java_threads;
@@ -187,6 +196,9 @@ public:
   void apply(NMethodClosure* nm_cl);
 };
 
+/**
+ * 遍历java线程和本地方法
+ */
 class ZRootsIteratorAllUncolored {
 private:
   ZParallelApply<ZJavaThreadsIterator> _java_threads;
@@ -201,6 +213,9 @@ public:
              NMethodClosure* nm_cl);
 };
 
+/**
+ * strong类型的oop-storage-set
+ */
 class ZRootsIteratorStrongColored {
 private:
   ZParallelApply<ZOopStorageSetIteratorStrong> _oop_storage_set_strong;
@@ -231,6 +246,9 @@ public:
   void report_num_dead();
 };
 
+/**
+ * 遍历strong weak两个oop-storage-set和ClassLoaderDataGraph中的强+弱根
+ */
 class ZRootsIteratorAllColored {
 private:
   ZParallelApply<ZOopStorageSetIteratorStrong> _oop_storage_set_strong;

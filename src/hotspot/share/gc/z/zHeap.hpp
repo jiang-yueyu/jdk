@@ -105,7 +105,7 @@ public:
   void keep_alive(oop obj);
 
   /**
-   * 对young old两代各调一次mark_flush_and_free, 将线程独享的标记栈转移到全局标记器条纹_stripes中
+   * 对young old两代的标记器各调一次mark_flush_and_free, 将线程独享的标记栈转移到全局标记器条纹_stripes中
    */
   void mark_flush_and_free(Thread* thread);
 

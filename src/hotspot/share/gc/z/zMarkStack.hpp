@@ -83,7 +83,8 @@ static_assert(sizeof(ZMarkStack) == ZMarkStackSize, "ZMarkStack size mismatch");
 static_assert(sizeof(ZMarkStackMagazine) <= ZMarkStackSize, "ZMarkStackMagazine size too large");
 
 /**
- * 标记栈的容器, 分为溢出列表和发布列表两个存储器
+ * 标记栈的容器, 分为溢出列表和发布列表两个存储器.
+ * 条纹本身是栈的容器, 也会用于分配工作线程内部的标记栈, 一个条纹和一个栈分片一一对应
  * ?? TODO 两个存储器有什么作用 ??
  */
 class ZMarkStripe {
@@ -100,8 +101,7 @@ public:
   bool is_empty() const;
 
   /**
-   * 根据publish决定将标记栈插入到哪个列表, 然后对terminate执行唤醒
-   * ?? TODO 唤醒有什么作用 ??
+   * 把一个标记栈插入到栈列表中, 根据publish决定将标记栈插入到哪个列表, 然后唤醒一个gc工作线程以受理任务
    */
   void publish_stack(ZMarkStack* stack, ZMarkTerminate* terminate, bool publish);
 
@@ -114,7 +114,10 @@ public:
 class ZMarkStripeSet {
 private:
   /**
-   * @param nstripes 0,1,3,7,15其中之一
+   * 0,1,3,7,15其中之一
+   * 
+   * 数值变更的时机:
+   * 1. try_terminate会将条纹数减半
    */
   size_t      _nstripes_mask;
   ZMarkStripe _stripes[ZMarkStripesMax];
@@ -153,6 +156,10 @@ class ZMarkStackAllocator;
 class ZMarkThreadLocalStacks {
 private:
   ZMarkStackMagazine* _magazine;
+
+  /**
+   * 分片后的标记栈, 和标记条纹一一对应
+   */
   ZMarkStack*         _stacks[ZMarkStripesMax];
 
   /**
@@ -179,6 +186,7 @@ private:
    * 优先取stackp, 如果*stackp为null, 则从stripe中取标记栈, 从取到的栈上执行出栈
    * 如果栈为空, 则进入到栈的回收流程
    * @param allocator 用于执行stack/magazine的回收
+   * @param stripe 工作条纹, 会从栈列表中取出一个栈
    */
   bool pop_slow(ZMarkStackAllocator* allocator,
                 ZMarkStripe* stripe,
@@ -219,8 +227,9 @@ public:
             bool publish);
 
   /**
-   * 首先从当前线程数据中取值, 取不到时再从stripe容器的栈中取值
+   * 首先从工作条纹对应的栈中取值, 取不到时再从stripe容器的栈中取值
    * @param stripes 仅用于定位下标
+   * @param stripe 工作条纹, 首先用于定位标记栈, 这个栈为空时, 则从条纹自身的栈列表中取出一个栈
    */
   bool pop(ZMarkStackAllocator* allocator,
            ZMarkStripeSet* stripes,
@@ -228,6 +237,7 @@ public:
            ZMarkStackEntry& entry);
 
   /**
+   * 将分片的各个栈转移到相应的标记条纹中
    * @return 发生过转移就会返回true
    */
   bool flush(ZMarkStackAllocator* allocator,
