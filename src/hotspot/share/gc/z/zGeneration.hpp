@@ -434,7 +434,10 @@ public:
   void select_tenuring_threshold(ZRelocationSetSelectorStats stats, bool promote_all);
   uint compute_tenuring_threshold(ZRelocationSetSelectorStats stats);
 
-  // Add remembered set entries
+  /**
+   * 让二级指针被地址所属页表的current存储器记住
+   * Add remembered set entries
+   */
   void remember(volatile zpointer* p);
 
   // Scan a remembered set entry
@@ -675,6 +678,10 @@ public:
 
   uint total_collections_at_start() const;
 
+  /**
+   * 当前的年轻代序列号与relocate_start发生时的年轻代年龄的差值为偶数,
+   * @return true - 此时记忆集的存储器和old_relocate_start时是一致的
+   */
   bool active_remset_is_current() const;
 
   ZRelocateQueue* relocate_queue();

@@ -81,7 +81,9 @@ public:
               const ZForwardingTable* old_forwarding_table,
               ZPageAllocator* page_allocator);
 
-  // Add to remembered set
+  /**
+   * 让二级指针被地址所属页表的current存储器记住
+   */
   void remember(volatile zpointer* p) const;
 
   // Scan all remembered sets and follow

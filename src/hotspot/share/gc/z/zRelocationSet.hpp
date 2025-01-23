@@ -72,6 +72,9 @@ public:
   ZGeneration* generation() const;
   ZArray<ZPage*>* flip_promoted_pages();
 
+  /**
+   * 将入参中的页表追加到_flip_promoted_pages当中 ?? TODO 目的是什么 ??
+   */
   void register_flip_promoted(const ZArray<ZPage*>& pages);
 
   /**

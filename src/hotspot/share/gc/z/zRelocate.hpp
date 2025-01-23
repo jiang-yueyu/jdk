@@ -104,6 +104,10 @@ public:
 
   void start();
 
+  /**
+   * 让二级指针被地址所属页表的current存储器记住
+   * Add remembered set entries
+   */
   static void add_remset(volatile zpointer* p);
 
   /**

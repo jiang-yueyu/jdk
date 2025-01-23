@@ -614,7 +614,7 @@ private:
    * 如果对象地址已经被转移, 则返回转移后的地址
    * 如果无法在目标页表上分配出相同尺寸的对象, 返回null
    * 将对象复制到目标地址上, 然后把目标地址插入到转发表中
-   * 插入失败代表已经被其他线程转移走了, 回滚内存分配
+   * 插入失败代表已经被其他线程转移走了, 回滚内存分配并返回其他线程转移后的地址
    * @return 转移后的地址
    */
   zaddress try_relocate_object_inner(zaddress from_addr) {
@@ -756,6 +756,10 @@ private:
     }
   }
 
+  /**
+   * 如果地址是年轻代, 则让二级指针被记忆集记住
+   * @return true - 地址是年轻代
+   */
   static bool add_remset_if_young(volatile zpointer* p, zaddress addr) {
     if (ZHeap::heap()->is_young(addr)) {
       ZRelocate::add_remset(p);
@@ -765,6 +769,11 @@ private:
     return false;
   }
 
+  /**
+   * 如果指针已经是store_good则直接返回
+   * 如果是load_good, 非空, 且为年轻代, 则让二级指针被记忆集记住然后返回
+   * 如果为空, ?? TODO ??
+   */
   static void update_remset_promoted_filter_and_remap_per_field(volatile zpointer* p) {
     const zpointer ptr = Atomic::load(p);
 
@@ -827,8 +836,7 @@ private:
   /**
    * 如果目标年龄不是老年代, 直接返回
    * 如果是老年代到老年代的转移 ?? TODO ??
-   * 否则 ?? TODO ??
-   * ?? TODO remset水很深, 后面慢慢看 ??
+   * 否则 ?? TODO remset水很深, 后面慢慢看 ??
    */
   void update_remset_for_fields(zaddress from_addr, zaddress to_addr) const {
     if (_forwarding->to_age() != ZPageAge::old) {
@@ -849,11 +857,11 @@ private:
   /**
    * 在现有的目标页表上执行分配和转移, 不涉及到页表分配
    * 如果对象地址已经被转移, 则返回转移后的地址
-   * 如果无法在目标页表上分配出相同尺寸的对象, 返回null
+   * 如果无法在目标页表上分配出相同尺寸的对象, 返回false
    * 将对象复制到目标地址上, 然后把目标地址插入到转发表中
-   * 插入失败代表已经被其他线程转移走了, 回滚内存分配
-   * 新地址值为null代表转移失败, 否则 ?? TODO ??
-   * ?? TODO remset水很深, 后面慢慢看 ??
+   * 插入失败代表已经被其他线程转移走了, 回滚内存分配并返回其他线程转移后的地址
+   * 新地址值为null代表转移失败, 返回false
+   * 否则 ?? TODO remset水很深, 后面慢慢看 ??
    */
   bool try_relocate_object(zaddress from_addr) {
     const zaddress to_addr = try_relocate_object_inner(from_addr);
@@ -867,6 +875,10 @@ private:
     return true;
   }
 
+  /**
+   * 如果转发器的起始页表不是老年代则直接返回
+   * 如果此时记忆集的存储器和和old_relocate_start时是一致的, 则将from_page的current存储器的bit都转储(转移后清空)到previous存储器中
+   */
   void start_in_place_relocation_prepare_remset(ZPage* from_page) {
     if (_forwarding->from_age() != ZPageAge::old) {
       // Only old pages have use remset bits
@@ -1319,6 +1331,12 @@ public:
   }
 };
 
+/**
+ * 如果是store_good则立即返回
+ * 通过一次读屏障
+ * 如果结果是null, 或者所属页表属于老年代则立即返回
+ * 最后让二级指针被地址所属页表的存储器记住
+ */
 static void remap_and_maybe_add_remset(volatile zpointer* p) {
   const zpointer ptr = Atomic::load(p);
 
@@ -1349,6 +1367,9 @@ static void remap_and_maybe_add_remset(volatile zpointer* p) {
   ZRelocate::add_remset(p);
 }
 
+/**
+ * 遍历各个页表, 让对象元素的对象字段被所属页表的current存储器记住; 如果一个对象元素处理完毕时, ygc正在调整工作线程数, 则直接结束 ?? TODO why ??
+ */
 class ZRelocateAddRemsetForFlipPromoted : public ZRestartableTask {
 private:
   ZStatTimerYoung                _timer;
@@ -1392,6 +1413,7 @@ void ZRelocate::relocate(ZRelocationSet* relocation_set) {
   }
 
   /**
+   * 遍历各个页表, 让对象元素的对象字段被所属页表的current存储器记住; 如果一个对象元素处理完毕时, ygc正在调整工作线程数, 则直接结束 ?? TODO why ??
    * ?? TODO 深坑, 放到后面看 ??
    */
   if (relocation_set->generation()->is_young()) {

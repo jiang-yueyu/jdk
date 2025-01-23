@@ -139,6 +139,9 @@ public:
 
   void resize(size_t page_size);
 
+  /**
+   * 仅用于assert
+   */
   bool at_current(uintptr_t offset) const;
   bool at_previous(uintptr_t offset) const;
   bool set_current(uintptr_t offset);
@@ -158,6 +161,11 @@ public:
   void clear_all();
   void clear_current();
   void clear_previous();
+
+  /**
+   * 仅当previous为空时被调用, 将current存储器的bit存入previous, 然后清空current
+   * ?? TODO 什么场景下调的 ??
+   */
   void swap_remset_bitmaps();
 
   ZBitMap::ReverseIterator iterator_reverse_previous();

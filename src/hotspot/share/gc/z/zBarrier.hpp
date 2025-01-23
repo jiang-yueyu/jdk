@@ -123,7 +123,15 @@ private:
    */
   static zaddress relocate_or_remap(zaddress_unsafe addr, ZGeneration* generation);
   static zaddress remap(zaddress_unsafe addr, ZGeneration* generation);
+
+  /**
+   * 如果所属页表是老年代, 则让二级指针被记忆集记住 ?? TODO 深坑 ??
+   */
   static void remember(volatile zpointer* p);
+
+  /**
+   * 如果非空则执行一次标记; 如果所属页表是老年代, 则让二级指针被记忆集记住 ?? TODO 深坑 ??
+   */
   static void mark_and_remember(volatile zpointer* p, zaddress addr);
 
   // Fast paths in increasing strength level
@@ -201,8 +209,19 @@ private:
    * @return 始终返回addr自身
    */
   static zaddress keep_alive_slow_path(zaddress addr);
+
+  /**
+   * 如果未启用vm参数则必然不会启用ZStoreBarrierBuffer
+   * 未启用ZStoreBarrierBuffer时, 如果地址非空则执行一次标记, 如果所属页表是老年代, 则让二级指针被记忆集记住 ?? TODO 深坑 ??
+   */
   static zaddress heap_store_slow_path(volatile zpointer* p, zaddress addr, zpointer prev, bool heal);
   static zaddress native_store_slow_path(zaddress addr);
+
+  /**
+   * 如果所属页表是老年代, 则让二级指针被记忆集记住 ?? TODO ??
+   * @param addr 直接返回
+   * @return 直接返回addr
+   */
   static zaddress no_keep_alive_heap_store_slow_path(volatile zpointer* p, zaddress addr);
 
   /**

@@ -38,6 +38,9 @@ struct ZStoreBarrierEntry {
   static ByteSize prev_offset();
 };
 
+/**
+ * vm参数启用时才会生效, 暂时不管 ?? TODO 以后再说 ??
+ */
 class ZStoreBarrierBuffer : public CHeapObj<mtGC> {
   friend class ZVerify;
 

@@ -181,6 +181,9 @@ void ZRelocationSet::install(const ZRelocationSetSelector* selector) {
   _generation->stat_relocation()->at_install_relocation_set(_allocator.size());
 }
 
+/**
+ * 销毁页表对象, 但不回收内存
+ */
 static void destroy_and_clear(ZPageAllocator* page_allocator, ZArray<ZPage*>* array) {
   for (int i = 0; i < array->length(); i++) {
     // Delete non-relocating promoted pages from last cycle
