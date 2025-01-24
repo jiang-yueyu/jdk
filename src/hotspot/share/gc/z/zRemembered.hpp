@@ -37,6 +37,11 @@ class ZPageAllocator;
 class ZPageTable;
 struct ZRememberedSetContaining;
 
+/**
+ * 年轻代会持有记忆器
+ * 用法
+ * - 如果一个二级指针的地址是老年代, 则该地址所属页表的记忆集会记住这个地址
+ */
 class ZRemembered {
   friend class ZRememberedScanMarkFollowTask;
   friend class ZRemsetTableIterator;
@@ -55,6 +60,9 @@ private:
 
     FoundOld();
 
+    /**
+     * 在0/1之间切换
+     */
     void flip();
     void clear_previous();
 
@@ -68,12 +76,32 @@ private:
   void flip_found_old_sets();
   void clear_found_old_previous_set();
 
+  /**
+   * 遍历数组中的元组, 对其中的对象地址进行必要的转移或者重映射; 如果元组中的字段属于对象, 则对字段地址执行function
+   */
   template <typename Function>
   void oops_do_forwarded_via_containing(GrowableArrayView<ZRememberedSetContaining>* array, Function function) const;
 
   bool should_scan_page(ZPage* page) const;
 
   bool scan_page_and_clear_remset(ZPage* page) const;
+
+ /**
+  * - 约束条件:
+  * * 仅在YGC阶段被调用
+  * * context一定是ZRememberedScanForwardingContext
+  * - 执行流程:
+  * * 如果能给转发器加上原子锁:
+  * ** 将转发器的状态流转为拒绝, 如果此时已经完成转移则清空已经记住的字段地址
+  * ** 清空context中的_containing_array
+  * ** 从页表记忆集的previous存储器中提取出字段地址和对象地址, 存入_containing_array当中
+  * ** 释放掉原子锁
+  * ** 遍历_containing_array中的元组, 对其中的对象地址进行必要的转移或者重映射; 如果元组中的字段地址属于该对象, 将字段地址值染色为color_remset_good, 如果地址属于年轻代则做一次标记并让二级指针被所属页表记忆集的current存储器记住
+  * * 否则:
+  * ** 如果此时已经完成转移, 遍历已经记住的字段地址, 将字段地址值染色为color_remset_good, 如果地址属于年轻代则做一次标记并让二级指针被所属页表记忆集的current存储器记住, 完成后将记住的字段地址清空
+  * ** 如果转发器的_relocated_remembered_fields_publish_young_seqnum等于最新的年轻代年龄, 则拒绝掉老年代发布出来的字段地址, 否则将字段地址标记为接受
+  * - 只要有任一地址属于年轻代, 则返回true
+  */
   bool scan_forwarding(ZForwarding* forwarding, void* context) const;
 
 public:
@@ -95,7 +123,12 @@ public:
   // 在mark_start阶段被翻转, 对换previous和current
   void flip();
 
-  // Scan a remembered set entry
+  /**
+   * 将地址值染色为color_remset_good, 如果地址属于年轻代则做一次标记
+   * 如果地址非空且属于年轻代, 则让二级指针被所属页表记忆集的current存储器记住, 并返回true
+   * 否则返回false
+   * @return true - 指针对应的地址非空且属于年轻代
+   */
   bool scan_field(volatile zpointer* p) const;
 
   // Verification

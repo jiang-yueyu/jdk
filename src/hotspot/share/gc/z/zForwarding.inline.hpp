@@ -326,9 +326,10 @@ inline bool ZForwarding::relocated_remembered_fields_is_concurrently_scanned() c
 }
 
 /**
- * 仅在YGC的标记阶段被调用
- * 1. 如果_relocated_remembered_fields_state状态是published, 遍历二级指针以后清空_relocated_remembered_fields_array
- * 2. 如果_relocated_remembered_fields_publish_young_seqnum等于最新的年轻代年龄, 将state设置为reject, 否则设置为accept
+ * - 约束条件: 仅在YGC的标记阶段被调用
+ * - 执行流程
+ * * 如果流转状态时已发布, 遍历二级指针执行回调函数以后清空已收集的字段地址
+ * * 否则, 如果_relocated_remembered_fields_publish_young_seqnum等于最新的年轻代年龄, 流转为拒绝, 否则流转为接受
  */
 template <typename Function>
 inline void ZForwarding::relocated_remembered_fields_apply_to_published(Function function) {

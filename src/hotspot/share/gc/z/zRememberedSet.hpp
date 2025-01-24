@@ -35,14 +35,17 @@ struct ZRememberedSetContaining {
   zaddress_unsafe _addr;
 };
 
-// Iterates over all (object, oop fields) pairs where the field address has
-// been marked as remembered, and fill in that information in a
-// ZRememberedSetContaining
-//
-// Note that it's not guaranteed that _field_addr belongs to the recorded
-// _addr. The entry could denote a stale remembered set field and _addr could
-// just be the nearest object. The users are responsible for filtering that
-// out.
+/**
+ * 遍历页表记忆集previous容器的反序迭代器, 从中提取出字段地址和对象地址. 提取出的字段不一定属于提取出的对象 ?? TODO 所以取两个值是为了干嘛 ??
+ * Iterates over all (object, oop fields) pairs where the field address has
+ * been marked as remembered, and fill in that information in a
+ * ZRememberedSetContaining
+ *
+ * Note that it's not guaranteed that _field_addr belongs to the recorded
+ * _addr. The entry could denote a stale remembered set field and _addr could
+ * just be the nearest object. The users are responsible for filtering that
+ * out.
+ */
 class ZRememberedSetContainingIterator {
 private:
   ZPage* const             _page;
@@ -55,7 +58,7 @@ private:
   zaddress_unsafe          _obj;
 
   /**
-   * 和_remset_iter规则一致, 但不是同一个迭代器
+   * _obj的区段迭代器, 和_remset_iter规则一致
    */
   ZBitMap::ReverseIterator _obj_remset_iter;
 
@@ -65,6 +68,15 @@ private:
 public:
   ZRememberedSetContainingIterator(ZPage* page);
 
+  /**
+   * 如果_obj非null, 则从_obj的区段迭代器中提取最后一个字段地址, 成功时向containing返回_obj地址和字段地址, 并返回true, 失败时将_obj置空
+   * 继续反序遍历页表记忆集的previous容器, 如果能取到值:
+   * * 将这个地址作为字段地址, 然后查找到该字段对于的对象地址, 一并返回给containing
+   * * 如果此时对象地址为空, 返回false ?? TODO 对应什么情况 ??
+   * * 然后根据对象地址和字段地址调整_remset_iter和_obj_remset_iter两个迭代器
+   * * 返回true
+   * 否则返回false
+   */
   bool next(ZRememberedSetContaining* containing);
 };
 

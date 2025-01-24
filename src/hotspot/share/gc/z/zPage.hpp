@@ -213,7 +213,6 @@ public:
 
   /**
    * 让二级指针被current存储器记住
-   * ?? 存进去的似乎都是字段的地址 ??
    */
   void remember(volatile zpointer* p);
 

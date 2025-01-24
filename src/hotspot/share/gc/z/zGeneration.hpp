@@ -440,7 +440,12 @@ public:
    */
   void remember(volatile zpointer* p);
 
-  // Scan a remembered set entry
+  /**
+   * 将地址值染色为color_remset_good, 如果地址属于年轻代则做一次标记
+   * 如果地址非空且属于年轻代, 则让二级指针被所属页表记忆集的current存储器记住, 并返回true
+   * 否则返回false
+   * @return true - 指针对应的地址非空且属于年轻代
+   */
   void scan_remembered_field(volatile zpointer* p);
 
   // Register old pages with remembered set

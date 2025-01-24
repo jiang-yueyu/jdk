@@ -47,6 +47,9 @@ ZRemembered::ZRemembered(ZPageTable* page_table,
     _page_allocator(page_allocator),
     _found_old() {}
 
+/**
+ * 遍历数组中的元组, 对其中的对象地址进行必要的转移或者重映射; 如果元组中的字段属于对象, 则对字段地址执行function
+ */
 template <typename Function>
 void ZRemembered::oops_do_forwarded_via_containing(GrowableArrayView<ZRememberedSetContaining>* array, Function function) const {
   // The array contains duplicated from_addr values. Cache expensive operations.
@@ -168,6 +171,9 @@ bool ZRemembered::scan_page_and_clear_remset(ZPage* page) const {
   return result;
 }
 
+/**
+ * 从页表记忆集的previous存储器中提取出字段地址和对象地址, 存入array当中
+ */
 static void fill_containing(GrowableArrayCHeap<ZRememberedSetContaining, mtGC>* array, ZPage* page) {
   page->log_msg(" (fill_remembered_containing)");
 
@@ -250,6 +256,9 @@ struct ZRememberedScanForwardingContext {
   }
 };
 
+/**
+ * 似乎只是用于收集统计值
+ */
 struct ZRememberedScanForwardingMeasureRetained {
   ZRememberedScanForwardingContext* _context;
   Ticks                             _start;
@@ -505,6 +514,7 @@ public:
 
       // Scan forwarding
       if (forwarding != nullptr) {
+        // ?? TODO true代表有任一地址属于年轻代, 和gcroot的关系是什么 ??
         bool found_roots = _remembered->scan_forwarding(forwarding, &context);
         ZVerify::after_scan(forwarding);
         if (found_roots) {

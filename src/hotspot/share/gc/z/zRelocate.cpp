@@ -669,6 +669,13 @@ private:
   /**
    * 遍历对象字段
    * 如果处于YGC的标记阶段, 将字段偏移量存入到转发表中, 否则立即让偏移量被remembered_set记住
+   * ?? TODO 之前的分析似乎不正确 ??
+   * 
+   * 将起始页表的记忆集中, 属于起始地址的对象字段记录转移到目标页表的相应位置上
+   * - 执行流程:
+   * * 遍历转移的起始对象在起始页表中的记忆集字段地址:
+   * ** 如果YGC处于标记阶段, 且转发器上的转移任务尚未完成时, 将字段地址存入转移器的对象字段地址数组中
+   * ** 否则直接让目标页表的存储器记住这个地址
    */
   void update_remset_old_to_old(zaddress from_addr, zaddress to_addr) const {
     // Old-to-old relocation - move existing remset bits
@@ -717,17 +724,20 @@ private:
     // doesn't matter for correctness, because the young generation marking has
     // already taken care of the bits.
 
+    /**
+     * true代表此时记忆集的存储器和old_relocate_start时是一致的
+     */
     const bool active_remset_is_current = ZGeneration::old()->active_remset_is_current();
 
     // When in-place relocation is done and the old remset bits are located in
     // the bitmap that is going to be used for the new remset bits, then we
     // need to clear the old bits before the new bits are inserted.
-    const bool iterate_current_remset = active_remset_is_current && !in_place;
 
     /**
-     * 从current或previous存储器中拿到对象字段的地址, 让它被相应的存储器记住
-     * 因为向remembered_set存入的是二级指针, 实际上就是对象地址+字段偏移量, 所以拿到的值是一致的
+     * true代表此时记忆集的存储器和old_relocate_start时是一致的, 且不是原地转移
      */
+    const bool iterate_current_remset = active_remset_is_current && !in_place;
+
     BitMap::Iterator iter = iterate_current_remset
         ? from_page->remset_iterator_limited_current(from_local_offset, size)
         : from_page->remset_iterator_limited_previous(from_local_offset, size);

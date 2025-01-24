@@ -44,11 +44,35 @@ class ZForwarding {
   friend class VMStructs;
   friend class ZForwardingTest;
 
+  /**
+   * none:      OC has not completed relocation
+   * published: OC has completed and published all relocated remembered fields
+   * reject:    A previous YC has already handled the field
+   * accept:    A previous YC has determined that there's no concurrency between
+   *            OC relocation and YC remembered fields scanning - not possible
+   *            since the page has been retained (still being relocated) and
+   *            we are in the process of scanning fields
+   */
   enum class ZPublishState : int8_t {
-    none,      // No publishing done yet
-    published, // OC published remset field info, which YC will reject or accept
-    reject,    // YC remset scanning accepted OC published remset field info
-    accept     // YC remset scanning rejected OC published remset field info
+    /**
+     * No publishing done yet
+     */
+    none,
+
+    /**
+     * OC published remset field info, which YC will reject or accept
+     */
+    published,
+
+    /**
+     * YC remset scanning accepted OC published remset field info
+     */
+    reject,
+
+    /**
+     * YC remset scanning rejected OC published remset field info
+     */
+    accept
   };
 
 private:
@@ -254,7 +278,7 @@ public:
   bool in_place_relocation_is_below_top_at_start(zoffset addr) const;
 
   /**
-   * 声明对page的引用
+   * 声明对page的引用, 相当于给所属页表加一个原子锁
    * false代表该转发表已经失效, 否则增加引用计数并返回true
    * 如果此时正在执行原地转移, 会等待转移结束并返回false
    */
@@ -291,29 +315,38 @@ public:
   // Relocated remembered set fields support
 
   /**
-   * 如果_relocated_remembered_fields_state是none, 将指针加入到_relocated_remembered_fields_array当作
-   * 否则_relocated_remembered_fields_state必定是reject
+   * 老年代-老年代的转移发生, 且年轻代处于标记阶段时会调用这个方法, 将对象字段的地址保存到数组中
+   * - 约束条件: 流转状态是none或reject, 分别代表转移未完成/已收集的字段地址被拒绝
+   * - 执行流程: 如果流转状态是none, 转移未完成, 将指针添加到数组中
    */
   void relocated_remembered_fields_register(volatile zpointer* p);
 
   /**
-   * 仅在老年代页表的转移阶段被调用
-   * 更新_relocated_remembered_fields_publish_young_seqnum为当前年轻代年龄
-   * 如果处于YGC的标记阶段, 调用relocated_remembered_fields_publish流转状态为publish
+   * - 约束条件: 仅在老年代页表的转移阶段被调用
+   * - 执行流程
+   * * 更新_relocated_remembered_fields_publish_young_seqnum为当前年轻代年龄
+   * * 如果YGC处于标记阶段:
+   * ** 如果流转状态是none则立即结束
+   * ** 否则清空已收集的字段地址
    */
   void relocated_remembered_fields_after_relocate();
 
   /**
-   * 仅在YGC的标记阶段被调用
-   * 调用前的状态必然为none reject之一, 调用后状态为published
-   * none到published的流转无任何操作, reject到published的状态会清空_relocated_remembered_fields_array
+   * - 约束条件:
+   * * 仅在YGC的标记阶段被调用
+   * * 流转状态是none或reject, 分别代表转移未完成/已收集的字段地址被拒绝
+   * - 执行流程：如果流转状态是none则立即结束, 否则清空已收集的字段地址
    */
   void relocated_remembered_fields_publish();
 
   /**
-   * 仅在YGC的标记阶段被调用
-   * 调用前的状态必然为none published reject之一, 调用后状态为reject
-   * none到reject的流转无任何操作, published到reject的流转会清空_relocated_remembered_fields_array
+   * - 约束条件
+   * * 仅在YGC的标记阶段被调用
+   * * 调用前的状态必然为none published reject之一
+   * - 执行流程
+   * * 如果流转前的状态是尚未完成转移, 则立即流转为拒绝
+   * * 如果流转前的状态是已发布, 则清空_relocated_remembered_fields_array并流转为拒绝
+   * * 已经是已拒绝则无操作
    */
   void relocated_remembered_fields_notify_concurrent_scan_of();
 
@@ -322,6 +355,12 @@ public:
    */
   bool relocated_remembered_fields_is_concurrently_scanned() const;
 
+  /**
+   * - 约束条件: 仅在YGC的标记阶段被调用
+   * - 执行流程
+   * * 如果流转状态时已发布, 遍历二级指针执行回调函数以后清空已收集的字段地址
+   * * 否则, 如果_relocated_remembered_fields_publish_young_seqnum等于最新的年轻代年龄, 流转为拒绝, 否则流转为接受
+   */
   template <typename Function>
   void relocated_remembered_fields_apply_to_published(Function function);
 

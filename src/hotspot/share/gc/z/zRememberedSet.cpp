@@ -133,9 +133,6 @@ ZRememberedSetContainingIterator::ZRememberedSetContainingIterator(ZPage* page)
     _obj(zaddress_unsafe::null),
     _obj_remset_iter(page->remset_reverse_iterator_previous()) {}
 
-/**
- * ?? TODO 深坑 ??
- */
 bool ZRememberedSetContainingIterator::next(ZRememberedSetContaining* containing) {
   // Note: to skip having to read the contents of the heap, when collecting the
   // containing information, this code doesn't read the size of the objects and

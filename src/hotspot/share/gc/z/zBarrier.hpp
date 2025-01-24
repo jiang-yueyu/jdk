@@ -342,6 +342,10 @@ public:
    * 并将指针颜色调整为ZPointerLoadGoodMask | ZPointerMarkedYoung | ZPointerRememberedMask
    */
   static void mark_young_good_barrier_on_oop_field(volatile zpointer* p);
+
+  /**
+   * 染色为color_remset_good, 如果地址属于年轻代还会做一次标记
+   */
   static zaddress remset_barrier_on_oop_field(volatile zpointer* p);
 
   /**
