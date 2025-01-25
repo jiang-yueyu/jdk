@@ -82,8 +82,27 @@ private:
   template <typename Function>
   void oops_do_forwarded_via_containing(GrowableArrayView<ZRememberedSetContaining>* array, Function function) const;
 
+  /**
+   * - 执行流程
+   * * 如果OGC不处于转移阶段, 则返回true
+   * * 如果页表没有与之相关的转发器, 则返回true
+   * * 如果转发器的字段地址数组的流转状态不是被拒绝, 则返回true
+   * * 否则返回false
+   */
   bool should_scan_page(ZPage* page) const;
 
+  /**
+   * - 执行流程:
+   * * 如果页表的分代年龄小于分代计数, 且OGC未处于标记阶段, 则认为live_bits可以直接拿来用 ?? TODO 什么意思 ??
+   * * 如果live_bits不能直接用:
+   * ** 遍历记忆集中的字段地址, 将地址值染色为color_remset_good, 如果地址属于年轻代则做一次标记, 如果地址非空且属于年轻代, 则让二级指针被所属页表记忆集的current存储器记住
+   * ** 只要上述步骤中有任一二级指针被记住, 则返回true
+   * * 否则, 如果页表已经被标记过(上面的任一对象被标记过):
+   * ** 遍历remembered_in_live中的字段地址 ?? TODO 你谁 ??, 将地址值染色为color_remset_good, 如果地址属于年轻代则做一次标记, 如果地址非空且属于年轻代, 则让二级指针被所属页表记忆集的current存储器记住
+   * ** 只要上述步骤中有任一二级指针被记住, 则返回true
+   * * 否则无操作并返回true
+   * * 最后, 如果live_bits不能直接用且页表已经被标记过, 则清空页表记忆集的previous存储器
+   */
   bool scan_page_and_clear_remset(ZPage* page) const;
 
  /**

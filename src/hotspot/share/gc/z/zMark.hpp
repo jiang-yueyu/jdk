@@ -277,6 +277,7 @@ public:
 
   /**
    * 按照partial=true执行follow_work
+   * @return true代表成功完成所有标记, false代表因为终止或调整工作线程数量而导致失败
    */
   bool follow_work_partial();
 

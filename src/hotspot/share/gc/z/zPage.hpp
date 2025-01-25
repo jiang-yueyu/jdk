@@ -150,6 +150,7 @@ public:
 
   /**
    * 如果当前页表的分代年龄小于分代计数, 返回true
+   * ?? TODO 这个代表可以被转移出去, 还是可以转移进来 ??
    */
   bool is_relocatable() const;
 
